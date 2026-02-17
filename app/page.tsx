@@ -18,9 +18,9 @@ function getOverallEvaluation(result: VitalResult) {
   if (bpm >= 60 && bpm <= 100) score += 2; else if (bpm >= 50 && bpm <= 110) score += 1;
   if (sys >= 90 && sys <= 130) score += 2; else if (sys >= 80 && sys <= 140) score += 1;
   if (dia >= 60 && dia <= 85) score += 2; else if (dia >= 50 && dia <= 90) score += 1;
-  if (score >= 5) return { label: "良好", comment: "現在のバイタルサインは安定した状態です。引き続き健康的な生活を心がけましょう。", color: "#4ade80", emoji: "😊" };
-  if (score >= 3) return { label: "やや注意", comment: "一部の数値がやや基準範囲外です。体調の変化に注意し、気になる場合は専門家にご相談ください。", color: "#fbbf24", emoji: "🤔" };
-  return { label: "要確認", comment: "数値に注意が必要な傾向が見られます。あくまで参考値ですが、医療専門家への相談をおすすめします。", color: "#f87171", emoji: "⚠️" };
+  if (score >= 5) return { label: "良好", comment: "素晴らしい状態です！この調子で、バランスの取れた食事、適度な運動、十分な睡眠を心がけましょう。定期的な健康チェックも忘れずに。", color: "#4ade80", emoji: "😊" };
+  if (score >= 3) return { label: "やや注意", comment: "少し気になる数値があります。ストレス管理と規則正しい生活を意識してください。水分補給を十分に行い、深呼吸でリラックスする時間を作りましょう。", color: "#fbbf24", emoji: "🤔" };
+  return { label: "要確認", comment: "数値に注意が必要です。十分な休息を取り、塩分・カフェインを控えめに。心配な場合は医療機関で相談することをおすすめします。", color: "#f87171", emoji: "⚠️" };
 }
 function getVitalStatus(type: string, value: string) {
   const v = parseFloat(value);
@@ -55,32 +55,19 @@ export default function VitalSensingDemo() {
   const ffmpegRef = useRef<any>(null);
   const ffmpegLoadedRef = useRef(false);
 
-  // WASM版FFmpegをロード
+  // WASM版FFmpegをロード（ローカルファイル使用）
   useEffect(() => {
     const loadFFmpeg = async () => {
       try {
         // ESMモジュールとしてCDNから直接インポート
-        // TypeScript ビルド時に外部 URL に対する型チェックでエラーになるため抑制
         // @ts-ignore
         const ffmpegModule = await import(/* webpackIgnore: true */ "https://unpkg.com/@ffmpeg/ffmpeg@0.12.10/dist/esm/index.js");
         const ffmpeg = new ffmpegModule.FFmpeg();
 
-        // シングルスレッド版coreをBlobURLで読み込み
-        const coreResp = await fetch("https://unpkg.com/@ffmpeg/core@0.12.6/dist/umd/ffmpeg-core.js");
-        const coreJS = await coreResp.text();
-        const coreBlob = new Blob([coreJS], { type: "text/javascript" });
-        const coreURL = URL.createObjectURL(coreBlob);
-
-        const wasmResp = await fetch("https://unpkg.com/@ffmpeg/core@0.12.6/dist/umd/ffmpeg-core.wasm");
-        const wasmBuf = await wasmResp.arrayBuffer();
-        const wasmBlob = new Blob([wasmBuf], { type: "application/wasm" });
-        const wasmURL = URL.createObjectURL(wasmBlob);
-
-        // WorkerもBlobURLで作成（クロスオリジン制限を回避）
-        const workerResp = await fetch("https://unpkg.com/@ffmpeg/ffmpeg@0.12.10/dist/esm/worker.js");
-        const workerJS = await workerResp.text();
-        const workerBlob = new Blob([workerJS], { type: "text/javascript" });
-        const workerURL = URL.createObjectURL(workerBlob);
+        // ローカルに配置したcoreとwasmファイルを使用
+        const coreURL = "/ffmpeg/ffmpeg-core.js";
+        const wasmURL = "/ffmpeg/ffmpeg-core.wasm";
+        const workerURL = "/ffmpeg/worker.js";
 
         await ffmpeg.load({ coreURL, wasmURL, workerURL });
         ffmpegRef.current = ffmpeg;
@@ -139,6 +126,20 @@ export default function VitalSensingDemo() {
     if (recordingTimerRef.current) { clearInterval(recordingTimerRef.current); recordingTimerRef.current = null; }
     if (streamRef.current) { streamRef.current.getTracks().forEach((t) => t.stop()); streamRef.current = null; }
   }, []);
+
+  // 結果画面表示時にページトップにスクロール
+  useEffect(() => {
+    if (step === "result") {
+      // DOMレンダリング完了後にスクロール
+      setTimeout(() => {
+        // .main-content要素を取得してスクロール（bodyはoverflow:hiddenのため）
+        const mainContent = document.querySelector(".main-content");
+        if (mainContent) {
+          mainContent.scrollTo({ top: 0, behavior: "smooth" });
+        }
+      }, 200);
+    }
+  }, [step]);
 
   // ------------------------------------------
   // 顔検出（face-api.js）
@@ -351,22 +352,22 @@ export default function VitalSensingDemo() {
   // ------------------------------------------
   const ovalColor = step === "recording" ? "rgba(80,200,120,0.8)"
     : faceStatus === "inside" ? "rgba(80,200,120,0.7)"
-    : faceStatus === "outside" ? "rgba(255,180,60,0.7)"
-    : "rgba(100,180,255,0.5)";
+      : faceStatus === "outside" ? "rgba(255,180,60,0.7)"
+        : "rgba(100,180,255,0.5)";
 
   const statusText = step === "recording" ? "✓ 測定中..."
     : faceStatus === "loading" ? "顔認識を準備中..."
-    : faceStatus === "inside" ? "✓ 顔を検出しました"
-    : faceStatus === "outside" ? "⚠ 枠の中に顔を収めてください"
-    : "顔を枠内に合わせてください";
+      : faceStatus === "inside" ? "✓ 顔を検出しました"
+        : faceStatus === "outside" ? "⚠ 枠の中に顔を収めてください"
+          : "顔を枠内に合わせてください";
 
   const statusBg = (step === "recording" || faceStatus === "inside") ? "rgba(80,200,120,.15)"
     : faceStatus === "outside" ? "rgba(255,180,60,.15)"
-    : "rgba(100,180,255,.15)";
+      : "rgba(100,180,255,.15)";
 
   const statusColor = (step === "recording" || faceStatus === "inside") ? "#4ade80"
     : faceStatus === "outside" ? "#fbbf24"
-    : "#64b4ff";
+      : "#64b4ff";
 
   return (
     <div className="app-container">
@@ -407,7 +408,7 @@ export default function VitalSensingDemo() {
         .spinner { width:64px; height:64px; border-radius:50%; border:3px solid rgba(100,180,255,.1); border-top-color:#64b4ff; animation:spin 1s linear infinite; margin:0 auto 24px; }
         .analyzing-text { font-size:16px; font-weight:500; color:rgba(255,255,255,.7); }
         .analyzing-sub { font-size:12px; color:rgba(255,255,255,.35); margin-top:8px; }
-        .result-screen { width:100%; max-width:420px; animation:fadeInUp .5s ease; padding-bottom:40px; }
+        .result-screen { width:100%; max-width:420px; animation:fadeInUp .5s ease; padding-top:20px; padding-bottom:40px; }
         .result-header { text-align:center; margin-bottom:20px; }
         .result-header h2 { font-size:20px; font-weight:700; }
         .result-header p { font-size:11px; color:rgba(255,255,255,.35); margin-top:2px; letter-spacing:.08em; }
@@ -487,7 +488,7 @@ export default function VitalSensingDemo() {
         </div>
 
         {step === "analyzing" && (
-          <div className="analyzing-screen"><div className="spinner" /><p className="analyzing-text">バイタルサインを分析しています</p><p className="analyzing-sub">しばらくお待ちください（約3秒）</p></div>
+          <div className="analyzing-screen"><div className="spinner" /><p className="analyzing-text">バイタルサインを分析しています</p><p className="analyzing-sub">しばらくお待ちください</p></div>
         )}
 
         {step === "result" && result && (() => {
@@ -495,7 +496,7 @@ export default function VitalSensingDemo() {
           const bs = getVitalStatus("bpm", result.bpm), ss = getVitalStatus("sys", result.bpv1), ds = getVitalStatus("dia", result.bpv0);
           return (
             <div className="result-screen">
-              <div className="result-header"><h2>測定結果</h2><p>Measurement Results</p></div>
+              <div className="result-header" id="result-top"><h2>測定結果</h2><p>Measurement Results</p></div>
               <div className="overall-eval" style={{ background: `${ev.color}10`, borderColor: `${ev.color}30` }}>
                 <div className="overall-emoji">{ev.emoji}</div>
                 <div className="overall-label" style={{ color: ev.color }}>{ev.label}</div>
