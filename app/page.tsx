@@ -1,6 +1,20 @@
 "use client";
 
 import { useState, useRef, useEffect, useCallback } from "react";
+import { type ThemePalette, getThemeColors } from "./theme-palettes";
+
+// ============================================
+// モックデータ（5段階サイクル）
+// ============================================
+// 各パターンのスコア: 絶好調(6), 良好(5), 普通(4), やや注意(2), 要確認(0)
+const MOCK_PATTERNS = [
+  { bpm: "75", bpv1: "120", bpv0: "75", S2: "[97]", LTv: "1.45" }, // 絶好調: 2+2+2=6
+  { bpm: "75", bpv1: "135", bpv0: "75", S2: "[96]", LTv: "1.52" }, // 良好:   2+1+2=5
+  { bpm: "75", bpv1: "145", bpv0: "75", S2: "[95]", LTv: "1.60" }, // 普通:   2+0+2=4
+  { bpm: "75", bpv1: "145", bpv0: "92", S2: "[94]", LTv: "1.75" }, // やや注意: 2+0+0=2
+  { bpm: "45", bpv1: "155", bpv0: "95", S2: "[92]", LTv: "2.10" }, // 要確認: 0+0+0=0
+];
+let mockCycleIndex = 0;
 
 // ============================================
 // 型定義
@@ -8,25 +22,146 @@ import { useState, useRef, useEffect, useCallback } from "react";
 type AppStep = "start" | "camera" | "recording" | "analyzing" | "result" | "error";
 interface VitalResult { bpm: string; bpv1: string; bpv0: string; S2: string; LTv: string; }
 type FaceStatus = "loading" | "no-face" | "outside" | "inside";
+type Language = "ja" | "en";
+
+// ============================================
+// 翻訳データ
+// ============================================
+const translations = {
+  ja: {
+    badge: "体験デモ",
+    startTitle: "バイタルセンシング体験デモ",
+    startSubtitle: "カメラで顔を撮影するだけで、心拍数・血圧を推定します",
+    step1: "顔をカメラに向ける",
+    step2: "6秒間の測定",
+    step3: "結果を確認",
+    startButton: "測定を開始する",
+    cameraGuide: "顔を枠内に合わせてください",
+    faceLoading: "顔認識を準備中...",
+    faceDetected: "✓ 顔を検出しました",
+    faceOutside: "⚠ 枠の中に顔を収めてください",
+    recording: "✓ 測定中...",
+    analyzing: "バイタルサインを分析しています",
+    pleaseWait: "しばらくお待ちください",
+    resultTitle: "測定結果",
+    resultSubtitle: "Measurement Results",
+    heartRate: "心拍数",
+    heartRateSub: "Heart Rate",
+    systolic: "収縮期血圧",
+    systolicSub: "Systolic BP",
+    diastolic: "拡張期血圧",
+    diastolicSub: "Diastolic BP",
+    s2Signal: "S2信号",
+    s2SignalSub: "S2 Signal",
+    ltvValue: "LTv値",
+    ltvValueSub: "LTv Value",
+    statusExcellent: "絶好調",
+    statusGood: "良好",
+    statusFair: "普通",
+    statusCaution: "やや注意",
+    statusCheck: "要確認",
+    statusNormal: "正常",
+    commentExcellent: "心拍数・血圧ともに理想的な生理的範囲内にあり、心血管系の機能が非常に良好な状態です。現在の生活習慣を継続しながら、年1回の定期健診による継続的なモニタリングをお勧めします。",
+    commentGood: "測定値は正常範囲内にあり、心血管系の健康状態は良好です。有酸素運動（週150分程度）・バランスの取れた食事・質の良い睡眠（7〜8時間）を継続することで、この状態を維持できます。",
+    commentFair: "測定値の一部が正常範囲の上限に近い傾向があります。予防的観点から、1日の塩分摂取量の見直し（目標6g未満）と、ウォーキングなどの有酸素運動の習慣化をお勧めします。",
+    commentCaution: "一部の測定値が正常範囲をやや逸脱しています。塩分・カフェイン・アルコールの過剰摂取を控え、ストレス軽減（腹式呼吸・瞑想）と十分な睡眠を優先してください。数週間後に再測定し、数値の推移を確認することをお勧めします。",
+    commentCheck: "複数の測定値が正常範囲を大きく外れています。緊張・運動直後・測定環境による一時的な変動の可能性もありますが、同様の値が続く場合は医療機関での精密検査を強くお勧めします。まず安静を保ち、改めて測定してください。",
+    disclaimer: "⚠ この結果は医療診断ではなく、参考値として提供しています。測定環境(照明・動き・端末)により結果が変動する場合があります。健康に関するご相談は医療専門家にお問い合わせください。",
+    backButton: "最初に戻る",
+    cameraStarting: "カメラを起動しています...",
+    modelLoading: "顔認識モデルを読み込み中...",
+    recordingGuide: "測定中です。そのまま動かないでください。",
+    convertingVideo: "映像をMP4に変換中...",
+    analyzingVitals: "バイタルサインを分析中...",
+    analyzingWait: "分析中です。しばらくお待ちください...",
+    faceNotDetected: "顔が検出されません。枠の中に顔を合わせてください",
+    faceOutsideFrame: "顔が枠からはみ出しています。枠の中に収めてください",
+    alignFaceFirst: "顔を枠の中に合わせてから撮影してください",
+    cameraPermissionDenied: "カメラへのアクセスが許可されていません。\nブラウザの設定でカメラの使用を許可してください。",
+    errorTitle: "エラーが発生しました",
+    retryButton: "最初からやり直す",
+    autoResumeText: "条件が整い次第、自動で測定を再開します...",
+  },
+  en: {
+    badge: "Demo",
+    startTitle: "Vital Sensing Experience Demo",
+    startSubtitle: "Estimate heart rate and blood pressure just by capturing your face with the camera",
+    step1: "Face the camera",
+    step2: "6-second measurement",
+    step3: "Check results",
+    startButton: "Start Measurement",
+    cameraGuide: "Align your face within the frame",
+    faceLoading: "Preparing face recognition...",
+    faceDetected: "✓ Face detected",
+    faceOutside: "⚠ Please fit your face within the frame",
+    recording: "✓ Measuring...",
+    analyzing: "Analyzing vital signs",
+    pleaseWait: "Please wait",
+    resultTitle: "Measurement Results",
+    resultSubtitle: "測定結果",
+    heartRate: "Heart Rate",
+    heartRateSub: "心拍数",
+    systolic: "Systolic BP",
+    systolicSub: "収縮期血圧",
+    diastolic: "Diastolic BP",
+    diastolicSub: "拡張期血圧",
+    s2Signal: "S2 Signal",
+    s2SignalSub: "S2信号",
+    ltvValue: "LTv Value",
+    ltvValueSub: "LTv値",
+    statusExcellent: "Excellent",
+    statusGood: "Good",
+    statusFair: "Fair",
+    statusCaution: "Caution",
+    statusCheck: "Check",
+    statusNormal: "Normal",
+    commentExcellent: "Both heart rate and blood pressure are within optimal physiological ranges, indicating excellent cardiovascular function. Continue your current lifestyle and consider annual health screenings for ongoing monitoring.",
+    commentGood: "Measurements are within normal ranges, reflecting good cardiovascular health. Sustain aerobic exercise (approx. 150 min/week), a balanced diet, and quality sleep (7–8 hours) to maintain these results.",
+    commentFair: "Some values are approaching the upper limits of normal ranges. From a preventive standpoint, reviewing daily sodium intake (target under 6g/day) and establishing a regular aerobic exercise habit such as walking is advisable.",
+    commentCaution: "Some measurements fall slightly outside normal ranges. Reduce excess sodium, caffeine, and alcohol, and prioritize stress reduction (diaphragmatic breathing, meditation) and adequate sleep. Remeasuring in a few weeks to track trends is recommended.",
+    commentCheck: "Multiple measurements fall significantly outside normal ranges. Temporary factors such as stress, post-exercise state, or measurement conditions may be involved, but if similar values persist, we strongly recommend consulting a healthcare professional for a thorough evaluation.",
+    disclaimer: "⚠ These results are for reference only and not medical diagnosis. Results may vary depending on measurement environment (lighting, movement, device). Please consult healthcare professionals for health concerns.",
+    backButton: "Back to Start",
+    cameraStarting: "Starting camera...",
+    modelLoading: "Loading face recognition model...",
+    recordingGuide: "Measuring. Please stay still.",
+    convertingVideo: "Converting video to MP4...",
+    analyzingVitals: "Analyzing vital signs...",
+    analyzingWait: "Analyzing. Please wait...",
+    faceNotDetected: "Face not detected. Please align your face within the frame",
+    faceOutsideFrame: "Face is outside the frame. Please fit it within the frame",
+    alignFaceFirst: "Please align your face within the frame before starting",
+    cameraPermissionDenied: "Camera access denied.\nPlease allow camera access in your browser settings.",
+    errorTitle: "An Error Occurred",
+    retryButton: "Start Over",
+    autoResumeText: "Measurement will resume automatically when ready...",
+  },
+};
+
+// テーマカラーパレットは theme-palettes.ts で定義
 
 // ============================================
 // 総合評価・バイタルステータス
 // ============================================
-function getOverallEvaluation(result: VitalResult) {
+function getOverallEvaluation(result: VitalResult, lang: Language) {
+  const t = translations[lang];
   const bpm = parseFloat(result.bpm), sys = parseFloat(result.bpv1), dia = parseFloat(result.bpv0);
   let score = 0;
   if (bpm >= 60 && bpm <= 100) score += 2; else if (bpm >= 50 && bpm <= 110) score += 1;
   if (sys >= 90 && sys <= 130) score += 2; else if (sys >= 80 && sys <= 140) score += 1;
   if (dia >= 60 && dia <= 85) score += 2; else if (dia >= 50 && dia <= 90) score += 1;
-  if (score >= 5) return { label: "良好", comment: "素晴らしい状態です！この調子で、バランスの取れた食事、適度な運動、十分な睡眠を心がけましょう。定期的な健康チェックも忘れずに。", color: "#4ade80", emoji: "😊" };
-  if (score >= 3) return { label: "やや注意", comment: "少し気になる数値があります。ストレス管理と規則正しい生活を意識してください。水分補給を十分に行い、深呼吸でリラックスする時間を作りましょう。", color: "#fbbf24", emoji: "🤔" };
-  return { label: "要確認", comment: "数値に注意が必要です。十分な休息を取り、塩分・カフェインを控えめに。心配な場合は医療機関で相談することをおすすめします。", color: "#f87171", emoji: "⚠️" };
+  if (score >= 6) return { label: t.statusExcellent, comment: t.commentExcellent, color: "#22d3ee", emoji: "😄" };
+  if (score >= 5) return { label: t.statusGood, comment: t.commentGood, color: "#4ade80", emoji: "😊" };
+  if (score >= 3) return { label: t.statusFair, comment: t.commentFair, color: "#a3e635", emoji: "🙂" };
+  if (score >= 1) return { label: t.statusCaution, comment: t.commentCaution, color: "#fbbf24", emoji: "🤔" };
+  return { label: t.statusCheck, comment: t.commentCheck, color: "#f87171", emoji: "😟" };
 }
-function getVitalStatus(type: string, value: string) {
+function getVitalStatus(type: string, value: string, lang: Language) {
+  const t = translations[lang];
   const v = parseFloat(value);
-  if (type === "bpm") { if (v >= 60 && v <= 100) return { label: "正常", color: "#4ade80" }; if (v >= 50 && v <= 110) return { label: "やや注意", color: "#fbbf24" }; return { label: "要確認", color: "#f87171" }; }
-  if (type === "sys") { if (v >= 90 && v <= 130) return { label: "正常", color: "#4ade80" }; if (v >= 80 && v <= 140) return { label: "やや注意", color: "#fbbf24" }; return { label: "要確認", color: "#f87171" }; }
-  if (type === "dia") { if (v >= 60 && v <= 85) return { label: "正常", color: "#4ade80" }; if (v >= 50 && v <= 90) return { label: "やや注意", color: "#fbbf24" }; return { label: "要確認", color: "#f87171" }; }
+  if (type === "bpm") { if (v >= 60 && v <= 100) return { label: t.statusNormal, color: "#4ade80" }; if (v >= 50 && v <= 110) return { label: t.statusCaution, color: "#fbbf24" }; return { label: t.statusCheck, color: "#f87171" }; }
+  if (type === "sys") { if (v >= 90 && v <= 130) return { label: t.statusNormal, color: "#4ade80" }; if (v >= 80 && v <= 140) return { label: t.statusCaution, color: "#fbbf24" }; return { label: t.statusCheck, color: "#f87171" }; }
+  if (type === "dia") { if (v >= 60 && v <= 85) return { label: t.statusNormal, color: "#4ade80" }; if (v >= 50 && v <= 90) return { label: t.statusCaution, color: "#fbbf24" }; return { label: t.statusCheck, color: "#f87171" }; }
   return { label: "—", color: "#64b4ff" };
 }
 
@@ -38,9 +173,11 @@ export default function VitalSensingDemo() {
   const [result, setResult] = useState<VitalResult | null>(null);
   const [errorMessage, setErrorMessage] = useState("");
   const [countdown, setCountdown] = useState(6);
-  const [guideMessage, setGuideMessage] = useState("");
+  const [showAlignAlert, setShowAlignAlert] = useState(false);
   const [faceStatus, setFaceStatus] = useState<FaceStatus>("no-face");
   const [modelLoaded, setModelLoaded] = useState(false);
+  const [themePalette, setThemePalette] = useState<ThemePalette>("clinical-blue");
+  const [language, setLanguage] = useState<Language>("ja");
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
@@ -55,21 +192,21 @@ export default function VitalSensingDemo() {
   const ffmpegRef = useRef<any>(null);
   const ffmpegLoadedRef = useRef(false);
 
-  // WASM版FFmpegをロード（ローカルファイル使用）
+  // WASM版FFmpegをロード(ローカルnpmパッケージ使用)
   useEffect(() => {
     const loadFFmpeg = async () => {
       try {
-        // ESMモジュールとしてCDNから直接インポート
-        // @ts-ignore
-        const ffmpegModule = await import(/* webpackIgnore: true */ "https://unpkg.com/@ffmpeg/ffmpeg@0.12.10/dist/esm/index.js");
-        const ffmpeg = new ffmpegModule.FFmpeg();
+        // ローカルのnpmパッケージからインポート
+        const { FFmpeg } = await import("@ffmpeg/ffmpeg");
+        const ffmpeg = new FFmpeg();
 
         // ローカルに配置したcoreとwasmファイルを使用
-        const coreURL = "/ffmpeg/ffmpeg-core.js";
-        const wasmURL = "/ffmpeg/ffmpeg-core.wasm";
-        const workerURL = "/ffmpeg/worker.js";
+        const baseURL = "https://unpkg.com/@ffmpeg/core@0.12.6/dist/esm";
+        await ffmpeg.load({
+          coreURL: `${baseURL}/ffmpeg-core.js`,
+          wasmURL: `${baseURL}/ffmpeg-core.wasm`,
+        });
 
-        await ffmpeg.load({ coreURL, wasmURL, workerURL });
         ffmpegRef.current = ffmpeg;
         ffmpegLoadedRef.current = true;
         console.log("=== FFmpeg WASM ロード完了 ===");
@@ -79,6 +216,25 @@ export default function VitalSensingDemo() {
     };
     loadFFmpeg();
   }, []);
+
+  // LocalStorageからテーマパレット、言語を初期化
+  useEffect(() => {
+    const savedPalette = localStorage.getItem("themePalette") as ThemePalette | null;
+    const savedLanguage = localStorage.getItem("language") as Language | null;
+
+    if (savedPalette && ["clinical-blue", "clean-white"].includes(savedPalette)) {
+      setThemePalette(savedPalette);
+    }
+    if (savedLanguage && (savedLanguage === "ja" || savedLanguage === "en")) {
+      setLanguage(savedLanguage);
+    }
+  }, []);
+
+  // テーマパレット、言語をLocalStorageに保存
+  useEffect(() => {
+    localStorage.setItem("themePalette", themePalette);
+    localStorage.setItem("language", language);
+  }, [themePalette, language]);
 
   // WebM → MP4 変換（ブラウザ側）
   const convertToMp4 = async (webmBlob: Blob): Promise<Blob> => {
@@ -194,12 +350,60 @@ export default function VitalSensingDemo() {
   }, [modelLoaded]);
 
   // ------------------------------------------
+  // API送信（実API失敗時はモックデータで結果表示）
+  // ------------------------------------------
+  const sendToApi = useCallback(async (videoBlob: Blob) => {
+    try {
+      const fd = new FormData(); fd.append("file", videoBlob, "vital_scan.mp4");
+
+      // 20秒のタイムアウトを設定
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 20000);
+
+      try {
+        const res = await fetch("/api/vital-sensing", {
+          method: "POST",
+          body: fd,
+          signal: controller.signal
+        });
+        clearTimeout(timeoutId);
+
+        if (!res.ok) {
+          throw new Error(`HTTP error! status: ${res.status}`);
+        }
+
+        const data = await res.json();
+        if (data.code === 200 && data.data) {
+          setResult({ bpm: data.data.bpm, bpv1: data.data.bpv1, bpv0: data.data.bpv0, S2: data.data.S2, LTv: data.data.LTv });
+          setStep("result");
+          return;
+        }
+        throw new Error(data.message || "分析に失敗しました");
+      } catch (fetchErr: unknown) {
+        if (fetchErr instanceof Error && fetchErr.name === 'AbortError') {
+          throw new Error("API request timed out");
+        }
+        throw fetchErr;
+      }
+    } catch (err) {
+      console.warn("実API失敗、モックデータを使用:", err);
+      // モックデータで結果画面を表示（5段階サイクル）
+      await new Promise((r) => setTimeout(r, 1000));
+      const pattern = MOCK_PATTERNS[mockCycleIndex % MOCK_PATTERNS.length];
+      console.log(`=== モックパターン ${mockCycleIndex % MOCK_PATTERNS.length + 1}/5 ===`, pattern);
+      mockCycleIndex++;
+      setResult(pattern);
+      setStep("result");
+    }
+  }, []);
+
+  // ------------------------------------------
   // 撮影を開始する内部関数（自動再開でも使用）
   // ------------------------------------------
   const beginRecording = useCallback(() => {
     if (!streamRef.current) return;
     chunksRef.current = []; countdownRef.current = 6; setCountdown(6);
-    setStep("recording"); setGuideMessage("測定中です。そのまま動かないでください。");
+    setStep("recording");
     isRecordingRef.current = true;
 
     const mr = new MediaRecorder(streamRef.current, { mimeType: "video/webm;codecs=vp9" });
@@ -210,18 +414,28 @@ export default function VitalSensingDemo() {
       isRecordingRef.current = false;
       hasStartedRef.current = false;
       const webmBlob = new Blob(chunksRef.current, { type: "video/webm" });
-      stopCamera(); setStep("analyzing"); setGuideMessage("映像をMP4に変換中...");
+      stopCamera(); setStep("analyzing");
 
-      // ブラウザ側でWebM → MP4変換
       try {
-        const mp4Blob = await convertToMp4(webmBlob);
-        setGuideMessage("バイタルサインを分析中...");
-        await sendToApi(mp4Blob);
-      } catch (err) {
-        console.error("MP4変換エラー:", err);
-        setGuideMessage("分析中です。しばらくお待ちください...");
-        // 変換失敗時はWebMのまま送信（モックフォールバックで対応）
-        await sendToApi(webmBlob);
+        // 15秒タイムアウト付きでMP4変換を試みる
+        let blobToSend: Blob = webmBlob;
+        try {
+          const timeoutPromise = new Promise<never>((_, reject) =>
+            setTimeout(() => reject(new Error("MP4変換タイムアウト")), 15000)
+          );
+          const mp4Blob = await Promise.race([convertToMp4(webmBlob), timeoutPromise]);
+          blobToSend = mp4Blob;
+          console.log("=== MP4変換成功 ===");
+        } catch (convErr) {
+          console.warn("MP4変換スキップ（WebMで送信）:", convErr);
+        }
+        await sendToApi(blobToSend);
+      } catch (fatalErr) {
+        // 最終フォールバック: モックデータで結果表示
+        console.error("致命的エラー、モック表示:", fatalErr);
+        await new Promise((r) => setTimeout(r, 500));
+        setResult({ bpm: "72", bpv1: "118", bpv0: "76", S2: "[97]", LTv: "1.45" });
+        setStep("result");
       }
     };
     mr.start(1000);
@@ -232,7 +446,7 @@ export default function VitalSensingDemo() {
         if (mr.state === "recording") mr.stop();
       }
     }, 1000);
-  }, [stopCamera]);
+  }, [stopCamera, sendToApi]);
 
   // ------------------------------------------
   // 顔検出ループ
@@ -262,9 +476,7 @@ export default function VitalSensingDemo() {
           countdownRef.current = 6;
           setCountdown(6);
           setStep("camera");
-          setGuideMessage(face === "no-face"
-            ? "顔が検出されません。枠の中に顔を合わせてください"
-            : "顔が枠からはみ出しています。枠の中に収めてください");
+
         }
 
         // 撮影ボタン押下済み & 撮影中でない & 顔OK → 自動再開
@@ -284,16 +496,16 @@ export default function VitalSensingDemo() {
   // ------------------------------------------
   const startCamera = useCallback(async () => {
     try {
-      setGuideMessage(modelLoaded ? "カメラを起動しています..." : "顔認識モデルを読み込み中...");
+
       setFaceStatus("loading");
       const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user", width: { ideal: 640 }, height: { ideal: 480 } }, audio: false });
       streamRef.current = stream;
       if (videoRef.current) { videoRef.current.srcObject = stream; videoRef.current.onloadedmetadata = () => { videoRef.current?.play().catch(console.error); }; }
       await new Promise((r) => setTimeout(r, 500));
       setStep("camera");
-      setGuideMessage("顔を枠の中に合わせてください");
+
       startFaceDetection();
-    } catch { setErrorMessage("カメラへのアクセスが許可されていません。\nブラウザの設定でカメラの使用を許可してください。"); setStep("error"); }
+    } catch { setErrorMessage(translations[language].cameraPermissionDenied); setStep("error"); }
   }, [startFaceDetection, modelLoaded]);
 
   // ------------------------------------------
@@ -301,7 +513,8 @@ export default function VitalSensingDemo() {
   // ------------------------------------------
   const startRecording = useCallback(() => {
     if (!streamRef.current || faceStatus !== "inside") {
-      setGuideMessage("顔を枠の中に合わせてから撮影してください");
+      setShowAlignAlert(true);
+      setTimeout(() => setShowAlignAlert(false), 3000);
       return;
     }
     hasStartedRef.current = true;
@@ -309,39 +522,11 @@ export default function VitalSensingDemo() {
   }, [faceStatus, beginRecording]);
 
   // ------------------------------------------
-  // API送信（実API失敗時はモックデータで結果表示）
-  // ------------------------------------------
-  const sendToApi = async (videoBlob: Blob) => {
-    try {
-      const fd = new FormData(); fd.append("file", videoBlob, "vital_scan.mp4");
-      const res = await fetch("/api/vital-sensing", { method: "POST", body: fd });
-      const data = await res.json();
-      if (data.code === 200 && data.data) {
-        setResult({ bpm: data.data.bpm, bpv1: data.data.bpv1, bpv0: data.data.bpv0, S2: data.data.S2, LTv: data.data.LTv });
-        setStep("result");
-        return;
-      }
-      throw new Error(data.message || "分析に失敗しました");
-    } catch (err) {
-      console.warn("実API失敗、モックデータを使用:", err);
-      // モックデータで結果画面を表示
-      await new Promise((r) => setTimeout(r, 1500));
-      const mockBpm = (65 + Math.floor(Math.random() * 20)).toString();
-      const mockSys = (110 + Math.floor(Math.random() * 25)).toString();
-      const mockDia = (68 + Math.floor(Math.random() * 15)).toString();
-      const mockS2 = `[${95 + Math.floor(Math.random() * 5)}]`;
-      const mockLTv = (1.2 + Math.random() * 0.8).toFixed(2);
-      setResult({ bpm: mockBpm, bpv1: mockSys, bpv0: mockDia, S2: mockS2, LTv: mockLTv });
-      setStep("result");
-    }
-  };
-
-  // ------------------------------------------
   // リセット
   // ------------------------------------------
   const handleReset = useCallback(() => {
     stopCamera(); isRecordingRef.current = false; hasStartedRef.current = false;
-    setStep("start"); setResult(null); setErrorMessage(""); setCountdown(6); setGuideMessage(""); setFaceStatus("no-face");
+    setStep("start"); setResult(null); setErrorMessage(""); setCountdown(6); setShowAlignAlert(false); setFaceStatus("no-face");
     chunksRef.current = []; countdownRef.current = 6;
   }, [stopCamera]);
 
@@ -355,11 +540,11 @@ export default function VitalSensingDemo() {
       : faceStatus === "outside" ? "rgba(255,180,60,0.7)"
         : "rgba(100,180,255,0.5)";
 
-  const statusText = step === "recording" ? "✓ 測定中..."
-    : faceStatus === "loading" ? "顔認識を準備中..."
-      : faceStatus === "inside" ? "✓ 顔を検出しました"
-        : faceStatus === "outside" ? "⚠ 枠の中に顔を収めてください"
-          : "顔を枠内に合わせてください";
+  const statusText = step === "recording" ? translations[language].recording
+    : faceStatus === "loading" ? translations[language].faceLoading
+      : faceStatus === "inside" ? translations[language].faceDetected
+        : faceStatus === "outside" ? translations[language].faceOutside
+          : translations[language].cameraGuide;
 
   const statusBg = (step === "recording" || faceStatus === "inside") ? "rgba(80,200,120,.15)"
     : faceStatus === "outside" ? "rgba(255,180,60,.15)"
@@ -369,71 +554,92 @@ export default function VitalSensingDemo() {
     : faceStatus === "outside" ? "#fbbf24"
       : "#64b4ff";
 
+  // ガイドメッセージを動的に計算（言語切替に即座に対応）
+  const guideMessage = showAlignAlert ? translations[language].alignFaceFirst
+    : step === "recording" ? translations[language].recordingGuide
+      : faceStatus === "loading" ? (modelLoaded ? translations[language].cameraStarting : translations[language].modelLoading)
+        : faceStatus === "outside" ? translations[language].faceOutsideFrame
+          : faceStatus === "no-face" ? translations[language].faceNotDetected
+            : translations[language].cameraGuide;
+
+  const isDark = themePalette === "clinical-blue";
+  const currentTheme = getThemeColors(themePalette, isDark ? "dark" : "light");
+
+
   return (
     <div className="app-container">
       <style jsx global>{`
         @import url("https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300;400;500;600;700&display=swap");
         * { margin:0; padding:0; box-sizing:border-box; }
-        body { font-family:"Noto Sans JP",sans-serif; background:#0a0f1c; color:#e8ecf4; overflow:hidden; -webkit-font-smoothing:antialiased; }
+        body { font-family:"Noto Sans JP",sans-serif; background:${currentTheme.background}; color:${currentTheme.text}; overflow:hidden; -webkit-font-smoothing:antialiased; }
         .app-container { width:100vw; height:100dvh; display:flex; flex-direction:column; position:relative; overflow:hidden; }
-        .bg-gradient { position:fixed; inset:0; background:radial-gradient(ellipse at 20% 50%,rgba(30,80,160,.15) 0%,transparent 50%),radial-gradient(ellipse at 80% 20%,rgba(60,140,200,.1) 0%,transparent 50%),radial-gradient(ellipse at 50% 80%,rgba(20,60,120,.12) 0%,transparent 50%),#0a0f1c; z-index:0; }
-        .header { position:relative; z-index:10; padding:16px 20px; display:flex; align-items:center; justify-content:space-between; border-bottom:1px solid rgba(255,255,255,.06); }
-        .logo { font-size:14px; font-weight:600; letter-spacing:.08em; color:rgba(255,255,255,.7); text-transform:uppercase; }
-        .badge { font-size:10px; padding:3px 8px; border-radius:20px; background:rgba(60,140,220,.15); color:rgba(100,180,255,.8); font-weight:500; }
-        .main-content { flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; position:relative; z-index:10; padding:20px; overflow-y:auto; }
+        .bg-gradient { position:fixed; inset:0; background:${currentTheme.gradient},${currentTheme.background}; z-index:0; }
+        .header { position:relative; z-index:10; padding:16px 20px; display:flex; align-items:center; justify-content:space-between; border-bottom:1px solid ${isDark ? 'rgba(255,255,255,.06)' : 'rgba(0,0,0,.06)'}; }
+        .logo { font-size:14px; font-weight:600; letter-spacing:.08em; color:${currentTheme.text}; text-transform:uppercase; background:none; border:none; cursor:pointer; transition:all .2s ease; padding:0; }
+        .logo:hover { opacity:0.7; }
+        .palette-selector { position:absolute; left:50%; transform:translateX(-50%); background:${isDark ? 'rgba(255,255,255,.06)' : 'rgba(0,0,0,.04)'}; border:1px solid ${isDark ? 'rgba(255,255,255,.1)' : 'rgba(0,0,0,.1)'}; border-radius:8px; padding:6px 12px; font-size:11px; color:${currentTheme.text}; cursor:pointer; transition:all .2s ease; font-family:"Noto Sans JP",sans-serif; font-weight:500; outline:none; }
+        .palette-selector:hover { background:${isDark ? 'rgba(255,255,255,.1)' : 'rgba(0,0,0,.08)'}; border-color:${currentTheme.accent}; }
+        .palette-selector:focus { border-color:${currentTheme.accent}; box-shadow:0 0 0 2px ${currentTheme.accent}33; }
+        .lang-badge-group { display:flex; gap:8px; align-items:center; }
+        .lang-toggle { background:${isDark ? 'rgba(255,255,255,.06)' : 'rgba(0,0,0,.04)'}; border:1px solid ${isDark ? 'rgba(255,255,255,.1)' : 'rgba(0,0,0,.1)'}; border-radius:8px; padding:4px 10px; font-size:11px; color:${currentTheme.textSecondary}; cursor:pointer; transition:all .2s ease; font-family:"Noto Sans JP",sans-serif; font-weight:500; }
+        .lang-toggle:hover { background:${isDark ? 'rgba(255,255,255,.1)' : 'rgba(0,0,0,.08)'}; }
+        .badge { font-size:10px; padding:3px 8px; border-radius:20px; background:${isDark ? 'rgba(60,140,220,.15)' : 'rgba(59,130,246,.15)'}; color:${currentTheme.accent}; font-weight:500; }
+        .main-content { flex:1; display:flex; flex-direction:column; align-items:center; justify-content:${step === "result" ? "flex-start" : "center"}; position:relative; z-index:10; padding:20px; overflow-y:auto; }
         .start-screen { text-align:center; max-width:400px; animation:fadeInUp .6s ease; }
-        .start-icon { width:80px; height:80px; border-radius:50%; background:linear-gradient(135deg,#1e50a0,#3c8cc8); display:flex; align-items:center; justify-content:center; margin:0 auto 28px; box-shadow:0 8px 32px rgba(30,80,160,.3); }
-        .start-icon svg { width:36px; height:36px; color:white; }
-        .start-title { font-size:24px; font-weight:700; margin-bottom:12px; line-height:1.3; background:linear-gradient(135deg,#fff,#a0c4e8); -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text; }
-        .start-subtitle { font-size:14px; color:rgba(255,255,255,.5); margin-bottom:36px; line-height:1.7; }
+        .start-screen,.error-screen { animation:fadeInUp .4s ease; text-align:center; max-width:520px; margin:0 auto; padding:0 24px; }
+        .start-icon { width:64px; height:64px; margin:0 auto 24px; color:${currentTheme.accent}; }
+        .start-icon svg { width:100%; height:100%; }
+        .start-title { font-size:28px; font-weight:700; margin-bottom:12px; color:${currentTheme.text}; }
+        .start-subtitle { font-size:14px; color:${currentTheme.textSecondary}; margin-bottom:40px; line-height:1.6; }
         .start-steps { display:flex; flex-direction:column; gap:12px; margin-bottom:36px; text-align:left; }
-        .start-step { display:flex; align-items:center; gap:14px; padding:14px 16px; background:rgba(255,255,255,.04); border-radius:12px; border:1px solid rgba(255,255,255,.06); }
-        .step-number { width:28px; height:28px; border-radius:50%; background:rgba(60,140,220,.15); color:#64b4ff; display:flex; align-items:center; justify-content:center; font-size:12px; font-weight:600; flex-shrink:0; }
-        .step-text { font-size:13px; color:rgba(255,255,255,.7); line-height:1.4; }
+        .start-step { display:flex; align-items:center; gap:12px; padding:14px 18px; background:${currentTheme.cardBg}; border:1px solid ${currentTheme.cardBorder}; border-radius:12px; transition:all .2s ease; }
+        .start-step:hover { background:${isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.02)'}; border-color:${currentTheme.accent}; transform:translateX(4px); }
+        .step-number { width:28px; height:28px; border-radius:50%; background:${currentTheme.primary}; color:#fff; display:flex; align-items:center; justify-content:center; font-size:13px; font-weight:600; flex-shrink:0; }
+        .step-text { font-size:13px; color:${currentTheme.text}; font-weight:500; text-align:left; }
         .btn-primary { width:100%; padding:16px 32px; border:none; border-radius:14px; background:linear-gradient(135deg,#1e50a0,#2a6db8); color:white; font-size:16px; font-weight:600; cursor:pointer; transition:all .2s ease; box-shadow:0 4px 20px rgba(30,80,160,.3); font-family:"Noto Sans JP",sans-serif; }
         .btn-primary:active { transform:scale(.98); }
-        .disclaimer { margin-top:20px; font-size:10px; color:rgba(255,255,255,.3); line-height:1.6; }
+        .disclaimer { margin-top:20px; font-size:10px; color:${currentTheme.textTertiary}; line-height:1.6; }
         .camera-screen { width:100%; height:100%; display:flex; flex-direction:column; align-items:center; justify-content:center; position:relative; }
         .camera-wrapper { position:relative; width:92vw; max-width:400px; aspect-ratio:3/4; border-radius:24px; overflow:hidden; box-shadow:0 12px 48px rgba(0,0,0,.4); }
         .camera-wrapper video { width:100%; height:100%; object-fit:cover; transform:scaleX(-1); }
         .face-guide { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; pointer-events:none; }
         .face-oval { width:75%; height:72%; border-radius:50%; border:3px solid; box-shadow:0 0 0 2000px rgba(10,15,28,.5); transition:border-color .3s ease; }
         .face-status-text { position:absolute; bottom:16px; left:50%; transform:translateX(-50%); font-size:12px; font-weight:600; padding:6px 16px; border-radius:20px; white-space:nowrap; }
-        .guide-text { text-align:center; margin-top:16px; font-size:14px; font-weight:500; color:rgba(255,255,255,.8); min-height:24px; }
+        .guide-text { text-align:center; margin-top:16px; font-size:14px; font-weight:500; color:${currentTheme.text}; min-height:24px; }
         .countdown-display { margin-top:8px; font-size:48px; font-weight:700; color:#4ade80; text-shadow:0 0 24px rgba(80,200,120,.3); }
         .btn-capture { margin-top:16px; width:72px; height:72px; border-radius:50%; border:3px solid rgba(100,180,255,.4); background:rgba(60,140,220,.2); cursor:pointer; display:flex; align-items:center; justify-content:center; transition:all .2s ease; }
         .btn-capture:active { transform:scale(.92); }
         .btn-capture-inner { width:56px; height:56px; border-radius:50%; background:linear-gradient(135deg,#1e50a0,#3c8cc8); box-shadow:0 4px 20px rgba(30,80,160,.4); }
         .analyzing-screen { text-align:center; animation:fadeInUp .4s ease; }
         .spinner { width:64px; height:64px; border-radius:50%; border:3px solid rgba(100,180,255,.1); border-top-color:#64b4ff; animation:spin 1s linear infinite; margin:0 auto 24px; }
-        .analyzing-text { font-size:16px; font-weight:500; color:rgba(255,255,255,.7); }
-        .analyzing-sub { font-size:12px; color:rgba(255,255,255,.35); margin-top:8px; }
+        .analyzing-text { font-size:16px; font-weight:500; color:${currentTheme.text}; }
+        .analyzing-sub { font-size:12px; color:${currentTheme.textSecondary}; margin-top:8px; }
         .result-screen { width:100%; max-width:420px; animation:fadeInUp .5s ease; padding-top:20px; padding-bottom:40px; }
         .result-header { text-align:center; margin-bottom:20px; }
-        .result-header h2 { font-size:20px; font-weight:700; }
-        .result-header p { font-size:11px; color:rgba(255,255,255,.35); margin-top:2px; letter-spacing:.08em; }
+        .result-header h2 { font-size:20px; font-weight:700; color:${currentTheme.text}; }
+        .result-header p { font-size:11px; color:${currentTheme.textTertiary}; margin-top:2px; letter-spacing:.08em; }
         .overall-eval { border-radius:16px; padding:24px 20px; margin-bottom:20px; text-align:center; border:1px solid; }
         .overall-emoji { font-size:40px; margin-bottom:8px; }
         .overall-label { font-size:22px; font-weight:700; margin-bottom:8px; }
-        .overall-comment { font-size:13px; color:rgba(255,255,255,.6); line-height:1.7; }
+        .overall-comment { font-size:13px; color:${currentTheme.textSecondary}; line-height:1.7; }
         .vital-cards { display:flex; flex-direction:column; gap:12px; margin-bottom:20px; }
-        .vital-card { background:rgba(255,255,255,.04); border:1px solid rgba(255,255,255,.06); border-radius:14px; padding:16px 18px; display:flex; align-items:center; justify-content:space-between; }
+        .vital-card { background:${currentTheme.cardBg}; border:1px solid ${currentTheme.cardBorder}; border-radius:14px; padding:16px 18px; display:flex; align-items:center; justify-content:space-between; }
         .vital-card-left { display:flex; flex-direction:column; gap:2px; }
-        .vital-card-label { font-size:13px; color:rgba(255,255,255,.7); font-weight:500; }
-        .vital-card-sublabel { font-size:10px; color:rgba(255,255,255,.35); }
+        .vital-card-label { font-size:13px; color:${currentTheme.text}; font-weight:500; }
+        .vital-card-sublabel { font-size:10px; color:${currentTheme.textTertiary}; }
         .vital-card-right { text-align:right; display:flex; flex-direction:column; align-items:flex-end; gap:4px; }
-        .vital-card-value { font-size:28px; font-weight:700; }
-        .vital-card-unit { font-size:11px; color:rgba(255,255,255,.4); }
+        .vital-card-value { font-size:28px; font-weight:700; color:${currentTheme.text}; }
+        .vital-card-unit { font-size:11px; color:${currentTheme.textSecondary}; }
         .vital-card-status { font-size:10px; font-weight:600; padding:2px 8px; border-radius:10px; }
-        .result-notice { background:rgba(255,180,60,.08); border:1px solid rgba(255,180,60,.15); border-radius:10px; padding:12px 14px; margin-bottom:20px; }
-        .result-notice p { font-size:10px; color:rgba(255,200,100,.7); line-height:1.6; }
-        .btn-reset { width:100%; padding:16px; border:none; border-radius:14px; background:rgba(255,255,255,.08); color:rgba(255,255,255,.8); font-size:15px; font-weight:600; cursor:pointer; transition:all .2s ease; font-family:"Noto Sans JP",sans-serif; border:1px solid rgba(255,255,255,.1); }
+        .result-notice { background:${isDark ? 'rgba(255,180,60,.08)' : 'rgba(0,0,0,.04)'}; border:1px solid ${isDark ? 'rgba(255,180,60,.15)' : currentTheme.cardBorder}; border-radius:10px; padding:12px 14px; margin-bottom:20px; }
+        .result-notice p { font-size:10px; color:${currentTheme.textSecondary}; line-height:1.6; }
+        .btn-reset { width:100%; padding:16px; border:none; border-radius:14px; background:${isDark ? 'rgba(255,255,255,.08)' : 'rgba(0,0,0,.04)'}; color:${currentTheme.text}; font-size:15px; font-weight:600; cursor:pointer; transition:all .2s ease; font-family:"Noto Sans JP",sans-serif; border:1px solid ${currentTheme.cardBorder}; }
         .btn-reset:active { transform:scale(.98); }
         .error-screen { text-align:center; max-width:360px; animation:fadeInUp .4s ease; }
         .error-icon { width:56px; height:56px; border-radius:50%; background:rgba(220,80,60,.15); display:flex; align-items:center; justify-content:center; margin:0 auto 20px; }
-        .error-title { font-size:18px; font-weight:600; margin-bottom:12px; }
-        .error-message { font-size:13px; color:rgba(255,255,255,.5); line-height:1.7; margin-bottom:28px; white-space:pre-line; }
-        .auto-resume-text { margin-top:16px; font-size:13px; color:rgba(255,255,255,.5); }
+        .error-title { font-size:18px; font-weight:600; margin-bottom:12px; color:${currentTheme.text}; }
+        .error-message { font-size:13px; color:${currentTheme.textSecondary}; line-height:1.7; margin-bottom:28px; white-space:pre-line; }
+        .auto-resume-text { margin-top:16px; font-size:13px; color:${currentTheme.textSecondary}; }
         @keyframes fadeInUp { from { opacity:0; transform:translateY(16px); } to { opacity:1; transform:translateY(0); } }
         @keyframes pulse-border { 0%,100% { opacity:.5; } 50% { opacity:1; } }
         @keyframes spin { to { transform:rotate(360deg); } }
@@ -442,23 +648,36 @@ export default function VitalSensingDemo() {
       <div className="bg-gradient" />
 
       <header className="header">
-        <span className="logo">Vital Sensing</span>
-        <span className="badge">体験デモ</span>
+        <button className="logo" onClick={() => { setStep("start"); setResult(null); setErrorMessage(""); setCountdown(6); setShowAlignAlert(false); setFaceStatus("no-face"); }}>Vital Sensing</button>
+        <select
+          className="palette-selector"
+          value={themePalette}
+          onChange={(e) => setThemePalette(e.target.value as ThemePalette)}
+        >
+          <option value="clinical-blue">Clinical Blue</option>
+          <option value="clean-white">Clean White</option>
+        </select>
+        <div className="lang-badge-group">
+          <button className="lang-toggle" onClick={() => setLanguage(language === "ja" ? "en" : "ja")}>
+            🌐 {language.toUpperCase()}
+          </button>
+          <span className="badge">{translations[language].badge}</span>
+        </div>
       </header>
 
       <main className="main-content">
         {step === "start" && (
           <div className="start-screen">
             <div className="start-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2" /></svg></div>
-            <h1 className="start-title">バイタルセンシング<br />体験デモ</h1>
-            <p className="start-subtitle">カメラで顔をスキャンするだけで<br />あなたの今のバイタルサインの傾向がわかります</p>
+            <h1 className="start-title">{translations[language].startTitle}</h1>
+            <p className="start-subtitle">{translations[language].startSubtitle}</p>
             <div className="start-steps">
-              <div className="start-step"><div className="step-number">1</div><div className="step-text">カメラに顔を合わせます（約6秒）</div></div>
-              <div className="start-step"><div className="step-number">2</div><div className="step-text">AIが映像を分析します</div></div>
-              <div className="start-step"><div className="step-number">3</div><div className="step-text">バイタルサインの傾向を表示します</div></div>
+              <div className="start-step"><div className="step-number">1</div><div className="step-text">{translations[language].step1}</div></div>
+              <div className="start-step"><div className="step-number">2</div><div className="step-text">{translations[language].step2}</div></div>
+              <div className="start-step"><div className="step-number">3</div><div className="step-text">{translations[language].step3}</div></div>
             </div>
-            <button className="btn-primary" onClick={startCamera}>測定を開始する</button>
-            <p className="disclaimer">※ 本デモは医療診断を目的としたものではありません。<br />結果は参考値であり、測定条件により変動します。</p>
+            <button className="btn-primary" onClick={startCamera}>{translations[language].startButton}</button>
+            <p className="disclaimer">{translations[language].disclaimer}</p>
           </div>
         )}
 
@@ -483,32 +702,31 @@ export default function VitalSensingDemo() {
             </button>
           )}
           {step === "camera" && hasStartedRef.current && (
-            <p className="auto-resume-text">条件が整い次第、自動で測定を再開します...</p>
+            <p className="auto-resume-text">{translations[language].autoResumeText}</p>
           )}
         </div>
 
         {step === "analyzing" && (
-          <div className="analyzing-screen"><div className="spinner" /><p className="analyzing-text">バイタルサインを分析しています</p><p className="analyzing-sub">しばらくお待ちください</p></div>
+          <div className="analyzing-screen"><div className="spinner" /><p className="analyzing-text">{translations[language].analyzing}</p><p className="analyzing-sub">{translations[language].pleaseWait}</p></div>
         )}
 
         {step === "result" && result && (() => {
-          const ev = getOverallEvaluation(result);
-          const bs = getVitalStatus("bpm", result.bpm), ss = getVitalStatus("sys", result.bpv1), ds = getVitalStatus("dia", result.bpv0);
+          const ev = getOverallEvaluation(result, language);
+          const bs = getVitalStatus("bpm", result.bpm, language), ss = getVitalStatus("sys", result.bpv1, language), ds = getVitalStatus("dia", result.bpv0, language);
           return (
             <div className="result-screen">
-              <div className="result-header" id="result-top"><h2>測定結果</h2><p>Measurement Results</p></div>
+              <div className="result-header" id="result-top"><h2>{translations[language].resultTitle}</h2><p>{translations[language].resultSubtitle}</p></div>
               <div className="overall-eval" style={{ background: `${ev.color}10`, borderColor: `${ev.color}30` }}>
-                <div className="overall-emoji">{ev.emoji}</div>
-                <div className="overall-label" style={{ color: ev.color }}>{ev.label}</div>
+                <div className="overall-label" style={{ color: ev.color, display: "flex", alignItems: "center", justifyContent: "center", gap: "10px" }}><span style={{ fontSize: "28px" }}>{ev.emoji}</span>{ev.label}</div>
                 <div className="overall-comment">{ev.comment}</div>
               </div>
               <div className="vital-cards">
                 {[
-                  { label: "心拍数", sub: "Heart Rate", val: result.bpm, unit: " bpm", st: bs },
-                  { label: "収縮期血圧", sub: "Systolic BP", val: result.bpv1, unit: " mmHg", st: ss },
-                  { label: "拡張期血圧", sub: "Diastolic BP", val: result.bpv0, unit: " mmHg", st: ds },
-                  { label: "S2信号", sub: "S2 Signal", val: result.S2, unit: "", st: { label: "—", color: "#64b4ff" } },
-                  { label: "LTv値", sub: "LTv Value", val: result.LTv, unit: "", st: { label: "—", color: "#64b4ff" } },
+                  { label: translations[language].heartRate, sub: translations[language].heartRateSub, val: result.bpm, unit: " bpm", st: bs },
+                  { label: translations[language].systolic, sub: translations[language].systolicSub, val: result.bpv1, unit: " mmHg", st: ss },
+                  { label: translations[language].diastolic, sub: translations[language].diastolicSub, val: result.bpv0, unit: " mmHg", st: ds },
+                  { label: translations[language].s2Signal, sub: translations[language].s2SignalSub, val: result.S2, unit: "", st: { label: "—", color: "#64b4ff" } },
+                  { label: translations[language].ltvValue, sub: translations[language].ltvValueSub, val: result.LTv, unit: "", st: { label: "—", color: "#64b4ff" } },
                 ].map((item, i) => (
                   <div className="vital-card" key={i}>
                     <div className="vital-card-left"><div className="vital-card-label">{item.label}</div><div className="vital-card-sublabel">{item.sub}</div></div>
@@ -519,8 +737,8 @@ export default function VitalSensingDemo() {
                   </div>
                 ))}
               </div>
-              <div className="result-notice"><p>⚠ この結果は医療診断ではなく、参考値として提供しています。測定環境（照明・動き・端末）により結果が変動する場合があります。健康に関するご相談は医療専門家にお問い合わせください。</p></div>
-              <button className="btn-reset" onClick={handleReset}>次の人へ（リセット）</button>
+              <div className="result-notice"><p>{translations[language].disclaimer}</p></div>
+              <button className="btn-reset" onClick={handleReset}>{translations[language].backButton}</button>
             </div>
           );
         })()}
@@ -528,9 +746,9 @@ export default function VitalSensingDemo() {
         {step === "error" && (
           <div className="error-screen">
             <div className="error-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#dc503c" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><line x1="15" y1="9" x2="9" y2="15" /><line x1="9" y1="9" x2="15" y2="15" /></svg></div>
-            <h2 className="error-title">エラーが発生しました</h2>
+            <h2 className="error-title">{translations[language].errorTitle}</h2>
             <p className="error-message">{errorMessage}</p>
-            <button className="btn-primary" onClick={handleReset}>最初からやり直す</button>
+            <button className="btn-primary" onClick={handleReset}>{translations[language].retryButton}</button>
           </div>
         )}
       </main>
