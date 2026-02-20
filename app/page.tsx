@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect, useCallback } from "react";
 import { type ThemePalette, getThemeColors } from "./theme-palettes";
+import { saveReport, getAllReports, type TeamReport } from "../lib/reportService";
 
 // ============================================
 // モックデータ（5段階サイクル）
@@ -19,7 +20,7 @@ let mockCycleIndex = 0;
 // ============================================
 // 型定義
 // ============================================
-type AppStep = "start" | "camera" | "recording" | "analyzing" | "result" | "error";
+type AppStep = "start" | "camera" | "recording" | "analyzing" | "result" | "team" | "error";
 interface VitalResult { bpm: string; bpv1: string; bpv0: string; S2: string; LTv: string; }
 type FaceStatus = "loading" | "no-face" | "outside" | "inside";
 type Language = "ja" | "en";
@@ -81,6 +82,25 @@ const translations = {
     errorTitle: "エラーが発生しました",
     retryButton: "最初からやり直す",
     autoResumeText: "条件が整い次第、自動で測定を再開します...",
+    reportIdLabel: "あなたのレポートID",
+    teamReportBtn: "チームレポートへ →",
+    backToPersonalBtn: "← 個人レポートへ",
+    teamReportTitle: "チームバイタルレポート",
+    teamReportSubtitle: "Team Vital Sensing Report",
+    totalMeasurements: "測定人数",
+    lastUpdated: "最終更新",
+    avgHeartRate: "平均心拍数",
+    avgSystolic: "平均収縮期血圧",
+    avgDiastolic: "平均拡張期血圧",
+    scoreDistTitle: "健康スコア分布",
+    teamCommentTitle: "総合評価",
+    teamCommentExcellent: "チーム全体の健康状態は非常に良好です。7割以上のメンバーが良好な状態にあり、心血管系の健康管理が全体的に行き届いています。この状態を維持するため、定期的な健康チェックを継続してください。",
+    teamCommentGood: "過半数のメンバーが良好な健康状態にあります。引き続き全員が健康管理を意識することで、チーム全体のウェルネス向上につながります。",
+    teamCommentCaution: "注意が必要なメンバーが多い傾向にあります。ストレス・睡眠不足・生活習慣の乱れが影響している可能性があります。チーム全体でのウェルネスプログラムの導入をご検討ください。",
+    teamCommentBalanced: "チームメンバーの健康状態はバランスよく分布しています。良好な状態のメンバーが中心ですが、引き続き全員が健康管理を意識することをお勧めします。",
+    loadingTeamReport: "チームレポートを読み込んでいます...",
+    noDataYet: "まだデータがありません",
+    people: "人",
   },
   en: {
     badge: "Demo",
@@ -135,6 +155,25 @@ const translations = {
     errorTitle: "An Error Occurred",
     retryButton: "Start Over",
     autoResumeText: "Measurement will resume automatically when ready...",
+    reportIdLabel: "Your Report ID",
+    teamReportBtn: "Team Report →",
+    backToPersonalBtn: "← My Report",
+    teamReportTitle: "Team Vital Report",
+    teamReportSubtitle: "Team Vital Sensing Report",
+    totalMeasurements: "Total Measurements",
+    lastUpdated: "Last Updated",
+    avgHeartRate: "Avg Heart Rate",
+    avgSystolic: "Avg Systolic BP",
+    avgDiastolic: "Avg Diastolic BP",
+    scoreDistTitle: "Health Score Distribution",
+    teamCommentTitle: "Overall Assessment",
+    teamCommentExcellent: "The team's overall health is excellent. Over 70% of members are in good condition, reflecting strong cardiovascular health management. Continue regular health checks to maintain this level.",
+    teamCommentGood: "More than half of the team members are in good health. Continued awareness of health habits will improve overall team wellness.",
+    teamCommentCaution: "A significant portion of members require attention. Stress, lack of sleep, or lifestyle factors may be contributing. Consider introducing team wellness programs and regular health screenings.",
+    teamCommentBalanced: "The team's health distribution is balanced. Most members are in good condition. Continued individual health awareness will contribute to the team's overall wellness improvement.",
+    loadingTeamReport: "Loading team report...",
+    noDataYet: "No data yet",
+    people: " people",
   },
 };
 
@@ -143,13 +182,24 @@ const translations = {
 // ============================================
 // 総合評価・バイタルステータス
 // ============================================
-function getOverallEvaluation(result: VitalResult, lang: Language) {
-  const t = translations[lang];
+function computeScore(result: VitalResult): number {
   const bpm = parseFloat(result.bpm), sys = parseFloat(result.bpv1), dia = parseFloat(result.bpv0);
   let score = 0;
   if (bpm >= 60 && bpm <= 100) score += 2; else if (bpm >= 50 && bpm <= 110) score += 1;
   if (sys >= 90 && sys <= 130) score += 2; else if (sys >= 80 && sys <= 140) score += 1;
   if (dia >= 60 && dia <= 85) score += 2; else if (dia >= 50 && dia <= 90) score += 1;
+  return score;
+}
+function scoreToStatusKey(score: number): string {
+  if (score >= 6) return "excellent";
+  if (score >= 5) return "good";
+  if (score >= 3) return "fair";
+  if (score >= 1) return "caution";
+  return "check";
+}
+function getOverallEvaluation(result: VitalResult, lang: Language) {
+  const t = translations[lang];
+  const score = computeScore(result);
   if (score >= 6) return { label: t.statusExcellent, comment: t.commentExcellent, color: "#22d3ee", emoji: "😄" };
   if (score >= 5) return { label: t.statusGood, comment: t.commentGood, color: "#4ade80", emoji: "😊" };
   if (score >= 3) return { label: t.statusFair, comment: t.commentFair, color: "#a3e635", emoji: "🙂" };
@@ -178,6 +228,8 @@ export default function VitalSensingDemo() {
   const [modelLoaded, setModelLoaded] = useState(false);
   const [themePalette, setThemePalette] = useState<ThemePalette>("clinical-blue");
   const [language, setLanguage] = useState<Language>("ja");
+  const [personalReportId, setPersonalReportId] = useState<string | null>(null);
+  const [teamReports, setTeamReports] = useState<TeamReport[]>([]);
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
@@ -283,9 +335,9 @@ export default function VitalSensingDemo() {
     if (streamRef.current) { streamRef.current.getTracks().forEach((t) => t.stop()); streamRef.current = null; }
   }, []);
 
-  // 結果画面表示時にページトップにスクロール
+  // 結果・チームレポート画面表示時にページトップにスクロール
   useEffect(() => {
-    if (step === "result") {
+    if (step === "result" || step === "team") {
       // DOMレンダリング完了後にスクロール
       setTimeout(() => {
         // .main-content要素を取得してスクロール（bodyはoverflow:hiddenのため）
@@ -374,8 +426,13 @@ export default function VitalSensingDemo() {
 
         const data = await res.json();
         if (data.code === 200 && data.data) {
-          setResult({ bpm: data.data.bpm, bpv1: data.data.bpv1, bpv0: data.data.bpv0, S2: data.data.S2, LTv: data.data.LTv });
+          const vr = { bpm: data.data.bpm, bpv1: data.data.bpv1, bpv0: data.data.bpv0, S2: data.data.S2, LTv: data.data.LTv };
+          setResult(vr);
           setStep("result");
+          const sc = computeScore(vr);
+          saveReport({ ...vr, score: sc, statusKey: scoreToStatusKey(sc) })
+            .then((id) => setPersonalReportId(id))
+            .catch((e) => console.warn("Firestore保存エラー:", e));
           return;
         }
         throw new Error(data.message || "分析に失敗しました");
@@ -394,6 +451,10 @@ export default function VitalSensingDemo() {
       mockCycleIndex++;
       setResult(pattern);
       setStep("result");
+      const sc = computeScore(pattern);
+      saveReport({ ...pattern, score: sc, statusKey: scoreToStatusKey(sc) })
+        .then((id) => setPersonalReportId(id))
+        .catch((e) => console.warn("Firestore保存エラー:", e));
     }
   }, []);
 
@@ -434,8 +495,13 @@ export default function VitalSensingDemo() {
         // 最終フォールバック: モックデータで結果表示
         console.error("致命的エラー、モック表示:", fatalErr);
         await new Promise((r) => setTimeout(r, 500));
-        setResult({ bpm: "72", bpv1: "118", bpv0: "76", S2: "[97]", LTv: "1.45" });
+        const fb = { bpm: "72", bpv1: "118", bpv0: "76", S2: "[97]", LTv: "1.45" };
+        setResult(fb);
         setStep("result");
+        const sc = computeScore(fb);
+        saveReport({ ...fb, score: sc, statusKey: scoreToStatusKey(sc) })
+          .then((id) => setPersonalReportId(id))
+          .catch((e) => console.warn("Firestore保存エラー:", e));
       }
     };
     mr.start(1000);
@@ -527,10 +593,21 @@ export default function VitalSensingDemo() {
   const handleReset = useCallback(() => {
     stopCamera(); isRecordingRef.current = false; hasStartedRef.current = false;
     setStep("start"); setResult(null); setErrorMessage(""); setCountdown(6); setShowAlignAlert(false); setFaceStatus("no-face");
+    setPersonalReportId(null); setTeamReports([]);
     chunksRef.current = []; countdownRef.current = 6;
   }, [stopCamera]);
 
   useEffect(() => { return () => { stopCamera(); }; }, [stopCamera]);
+
+  const goToTeamReport = useCallback(async () => {
+    try {
+      const reports = await getAllReports();
+      setTeamReports(reports);
+      setStep("team");
+    } catch (e) {
+      console.warn("チームレポート取得エラー:", e);
+    }
+  }, []);
 
   // ------------------------------------------
   // 枠の色
@@ -584,7 +661,7 @@ export default function VitalSensingDemo() {
         .lang-toggle { background:${isDark ? 'rgba(255,255,255,.06)' : 'rgba(0,0,0,.04)'}; border:1px solid ${isDark ? 'rgba(255,255,255,.1)' : 'rgba(0,0,0,.1)'}; border-radius:8px; padding:4px 10px; font-size:11px; color:${currentTheme.textSecondary}; cursor:pointer; transition:all .2s ease; font-family:"Noto Sans JP",sans-serif; font-weight:500; }
         .lang-toggle:hover { background:${isDark ? 'rgba(255,255,255,.1)' : 'rgba(0,0,0,.08)'}; }
         .badge { font-size:10px; padding:3px 8px; border-radius:20px; background:${isDark ? 'rgba(60,140,220,.15)' : 'rgba(59,130,246,.15)'}; color:${currentTheme.accent}; font-weight:500; }
-        .main-content { flex:1; display:flex; flex-direction:column; align-items:center; justify-content:${step === "result" ? "flex-start" : "center"}; position:relative; z-index:10; padding:20px; overflow-y:auto; }
+        .main-content { flex:1; display:flex; flex-direction:column; align-items:center; justify-content:${(step === "result" || step === "team") ? "flex-start" : "center"}; position:relative; z-index:10; padding:20px; overflow-y:auto; }
         .start-screen { text-align:center; max-width:400px; animation:fadeInUp .6s ease; }
         .start-screen,.error-screen { animation:fadeInUp .4s ease; text-align:center; max-width:520px; margin:0 auto; padding:0 24px; }
         .start-icon { width:64px; height:64px; margin:0 auto 24px; color:${currentTheme.accent}; }
@@ -635,6 +712,38 @@ export default function VitalSensingDemo() {
         .result-notice p { font-size:10px; color:${currentTheme.textSecondary}; line-height:1.6; }
         .btn-reset { width:100%; padding:16px; border:none; border-radius:14px; background:${isDark ? 'rgba(255,255,255,.08)' : 'rgba(0,0,0,.04)'}; color:${currentTheme.text}; font-size:15px; font-weight:600; cursor:pointer; transition:all .2s ease; font-family:"Noto Sans JP",sans-serif; border:1px solid ${currentTheme.cardBorder}; }
         .btn-reset:active { transform:scale(.98); }
+        .report-id-box { background:${isDark ? 'rgba(100,180,255,.06)' : 'rgba(59,130,246,.06)'}; border:1px solid ${isDark ? 'rgba(100,180,255,.15)' : 'rgba(59,130,246,.15)'}; border-radius:10px; padding:10px 14px; margin-bottom:12px; display:flex; align-items:center; justify-content:space-between; gap:8px; }
+        .report-id-label { font-size:10px; color:${currentTheme.textTertiary}; white-space:nowrap; }
+        .report-id-value { font-size:11px; font-weight:600; color:${currentTheme.accent}; font-family:monospace; letter-spacing:.04em; }
+        .btn-team { width:100%; padding:16px; border:none; border-radius:14px; background:linear-gradient(135deg,#1e50a0,#2a6db8); color:#fff; font-size:15px; font-weight:600; cursor:pointer; transition:all .2s ease; font-family:"Noto Sans JP",sans-serif; margin-top:10px; box-shadow:0 4px 16px rgba(30,80,160,.25); }
+        .btn-team:active { transform:scale(.98); }
+        .btn-secondary { width:100%; padding:14px; border:1px solid ${currentTheme.cardBorder}; border-radius:14px; background:${isDark ? 'rgba(255,255,255,.06)' : 'rgba(0,0,0,.04)'}; color:${currentTheme.text}; font-size:14px; font-weight:600; cursor:pointer; transition:all .2s ease; font-family:"Noto Sans JP",sans-serif; margin-top:10px; }
+        .btn-secondary:active { transform:scale(.98); }
+        .team-screen { width:100%; max-width:420px; animation:fadeInUp .5s ease; padding-top:20px; padding-bottom:40px; }
+        .team-header { text-align:center; margin-bottom:20px; }
+        .team-header h2 { font-size:20px; font-weight:700; color:${currentTheme.text}; }
+        .team-header p { font-size:11px; color:${currentTheme.textTertiary}; margin-top:2px; letter-spacing:.08em; }
+        .team-meta { display:flex; gap:12px; margin-bottom:20px; }
+        .team-meta-card { flex:1; background:${currentTheme.cardBg}; border:1px solid ${currentTheme.cardBorder}; border-radius:12px; padding:12px 14px; text-align:center; }
+        .team-meta-label { font-size:10px; color:${currentTheme.textTertiary}; margin-bottom:4px; }
+        .team-meta-value { font-size:18px; font-weight:700; color:${currentTheme.text}; }
+        .team-meta-unit { font-size:10px; color:${currentTheme.textSecondary}; }
+        .team-section-title { font-size:13px; font-weight:600; color:${currentTheme.textSecondary}; margin-bottom:10px; letter-spacing:.04em; text-transform:uppercase; }
+        .team-avg-cards { display:flex; gap:10px; margin-bottom:20px; }
+        .team-avg-card { flex:1; background:${currentTheme.cardBg}; border:1px solid ${currentTheme.cardBorder}; border-radius:12px; padding:12px 10px; text-align:center; }
+        .team-avg-label { font-size:10px; color:${currentTheme.textTertiary}; margin-bottom:4px; line-height:1.4; }
+        .team-avg-value { font-size:22px; font-weight:700; color:${currentTheme.text}; }
+        .team-avg-unit { font-size:10px; color:${currentTheme.textSecondary}; }
+        .score-dist { background:${currentTheme.cardBg}; border:1px solid ${currentTheme.cardBorder}; border-radius:14px; padding:16px 18px; margin-bottom:20px; }
+        .score-dist-row { display:flex; align-items:center; gap:10px; margin-bottom:8px; }
+        .score-dist-row:last-child { margin-bottom:0; }
+        .score-dist-name { font-size:11px; color:${currentTheme.text}; width:56px; flex-shrink:0; font-weight:500; }
+        .score-dist-bar-bg { flex:1; height:8px; background:${isDark ? 'rgba(255,255,255,.06)' : 'rgba(0,0,0,.06)'}; border-radius:4px; overflow:hidden; }
+        .score-dist-bar { height:100%; border-radius:4px; transition:width .6s ease; }
+        .score-dist-count { font-size:11px; color:${currentTheme.textSecondary}; width:32px; text-align:right; flex-shrink:0; }
+        .team-comment-box { background:${currentTheme.cardBg}; border:1px solid ${currentTheme.cardBorder}; border-radius:14px; padding:16px 18px; margin-bottom:20px; }
+        .team-comment-title { font-size:12px; font-weight:600; color:${currentTheme.accent}; margin-bottom:8px; }
+        .team-comment-text { font-size:13px; color:${currentTheme.textSecondary}; line-height:1.7; }
         .error-screen { text-align:center; max-width:360px; animation:fadeInUp .4s ease; }
         .error-icon { width:56px; height:56px; border-radius:50%; background:rgba(220,80,60,.15); display:flex; align-items:center; justify-content:center; margin:0 auto 20px; }
         .error-title { font-size:18px; font-weight:600; margin-bottom:12px; color:${currentTheme.text}; }
@@ -648,7 +757,7 @@ export default function VitalSensingDemo() {
       <div className="bg-gradient" />
 
       <header className="header">
-        <button className="logo" onClick={() => { setStep("start"); setResult(null); setErrorMessage(""); setCountdown(6); setShowAlignAlert(false); setFaceStatus("no-face"); }}>Vital Sensing</button>
+        <button className="logo" onClick={() => { setStep("start"); setResult(null); setErrorMessage(""); setCountdown(6); setShowAlignAlert(false); setFaceStatus("no-face"); setPersonalReportId(null); setTeamReports([]); }}>Vital Sensing</button>
         <select
           className="palette-selector"
           value={themePalette}
@@ -738,7 +847,85 @@ export default function VitalSensingDemo() {
                 ))}
               </div>
               <div className="result-notice"><p>{translations[language].disclaimer}</p></div>
+              <div className="report-id-box">
+                <span className="report-id-label">{translations[language].reportIdLabel}</span>
+                <span className="report-id-value">{personalReportId ?? "..."}</span>
+              </div>
               <button className="btn-reset" onClick={handleReset}>{translations[language].backButton}</button>
+              <button className="btn-team" onClick={goToTeamReport}>{translations[language].teamReportBtn}</button>
+            </div>
+          );
+        })()}
+
+        {step === "team" && (() => {
+          const t = translations[language];
+          const reports = teamReports;
+          const total = reports.length;
+          if (total === 0) return (
+            <div className="team-screen">
+              <div className="team-header"><h2>{t.teamReportTitle}</h2><p>{t.teamReportSubtitle}</p></div>
+              <p style={{ textAlign: "center", color: currentTheme.textSecondary, fontSize: "14px" }}>{t.noDataYet}</p>
+              <button className="btn-reset" style={{ marginTop: "24px" }} onClick={handleReset}>{t.backButton}</button>
+              <button className="btn-secondary" onClick={() => setStep("result")}>{t.backToPersonalBtn}</button>
+            </div>
+          );
+          const avgBpm = Math.round(reports.reduce((s, r) => s + parseFloat(r.bpm), 0) / total);
+          const avgSys = Math.round(reports.reduce((s, r) => s + parseFloat(r.bpv1), 0) / total);
+          const avgDia = Math.round(reports.reduce((s, r) => s + parseFloat(r.bpv0), 0) / total);
+          const dist = { excellent: 0, good: 0, fair: 0, caution: 0, check: 0 };
+          reports.forEach((r) => { if (r.statusKey in dist) dist[r.statusKey as keyof typeof dist]++; });
+          const goodPct = (dist.excellent + dist.good) / total;
+          const cautionPct = (dist.caution + dist.check) / total;
+          const teamComment = goodPct >= 0.7 ? t.teamCommentExcellent : goodPct >= 0.5 ? t.teamCommentGood : cautionPct >= 0.5 ? t.teamCommentCaution : t.teamCommentBalanced;
+          const lastRaw = reports[0]?.createdAt;
+          const lastDate = lastRaw?.toDate ? lastRaw.toDate().toLocaleDateString(language === "ja" ? "ja-JP" : "en-US", { year: "numeric", month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" }) : "—";
+          const distRows = [
+            { key: "excellent", label: t.statusExcellent, color: "#22d3ee" },
+            { key: "good",      label: t.statusGood,      color: "#4ade80" },
+            { key: "fair",      label: t.statusFair,      color: "#a3e635" },
+            { key: "caution",   label: t.statusCaution,   color: "#fbbf24" },
+            { key: "check",     label: t.statusCheck,     color: "#f87171" },
+          ];
+          return (
+            <div className="team-screen">
+              <div className="team-header"><h2>{t.teamReportTitle}</h2><p>{t.teamReportSubtitle}</p></div>
+              <div className="team-meta">
+                <div className="team-meta-card">
+                  <div className="team-meta-label">{t.totalMeasurements}</div>
+                  <div className="team-meta-value">{total}<span className="team-meta-unit"> {t.people}</span></div>
+                </div>
+                <div className="team-meta-card">
+                  <div className="team-meta-label">{t.lastUpdated}</div>
+                  <div style={{ fontSize: "11px", fontWeight: 600, color: currentTheme.text, marginTop: "4px" }}>{lastDate}</div>
+                </div>
+              </div>
+              <p className="team-section-title">{t.avgHeartRate} / {t.avgSystolic} / {t.avgDiastolic}</p>
+              <div className="team-avg-cards" style={{ marginBottom: "20px" }}>
+                <div className="team-avg-card"><div className="team-avg-label">{t.avgHeartRate}<br/>Heart Rate</div><div className="team-avg-value">{avgBpm}</div><div className="team-avg-unit">bpm</div></div>
+                <div className="team-avg-card"><div className="team-avg-label">{t.avgSystolic}<br/>Systolic</div><div className="team-avg-value">{avgSys}</div><div className="team-avg-unit">mmHg</div></div>
+                <div className="team-avg-card"><div className="team-avg-label">{t.avgDiastolic}<br/>Diastolic</div><div className="team-avg-value">{avgDia}</div><div className="team-avg-unit">mmHg</div></div>
+              </div>
+              <p className="team-section-title">{t.scoreDistTitle}</p>
+              <div className="score-dist">
+                {distRows.map((row) => {
+                  const count = dist[row.key as keyof typeof dist];
+                  const pct = total > 0 ? (count / total) * 100 : 0;
+                  return (
+                    <div className="score-dist-row" key={row.key}>
+                      <span className="score-dist-name">{row.label}</span>
+                      <div className="score-dist-bar-bg"><div className="score-dist-bar" style={{ width: `${pct}%`, background: row.color }} /></div>
+                      <span className="score-dist-count">{count}{language === "ja" ? "人" : ""}</span>
+                    </div>
+                  );
+                })}
+              </div>
+              <p className="team-section-title">{t.teamCommentTitle}</p>
+              <div className="team-comment-box">
+                <div className="team-comment-title">{t.teamCommentTitle}</div>
+                <div className="team-comment-text">{teamComment}</div>
+              </div>
+              <button className="btn-reset" onClick={handleReset}>{t.backButton}</button>
+              <button className="btn-secondary" onClick={() => setStep("result")}>{t.backToPersonalBtn}</button>
             </div>
           );
         })()}
