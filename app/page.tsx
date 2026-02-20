@@ -17,6 +17,9 @@ const MOCK_PATTERNS = [
 ];
 let mockCycleIndex = 0;
 
+// Firebase未設定時のセッション内フォールバックストア
+const sessionReports: import("../lib/reportService").TeamReport[] = [];
+
 // ============================================
 // 型定義
 // ============================================
@@ -230,6 +233,7 @@ export default function VitalSensingDemo() {
   const [language, setLanguage] = useState<Language>("ja");
   const [personalReportId, setPersonalReportId] = useState<string | null>(null);
   const [teamReports, setTeamReports] = useState<TeamReport[]>([]);
+  const [teamLoading, setTeamLoading] = useState(false);
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
@@ -430,8 +434,12 @@ export default function VitalSensingDemo() {
           setResult(vr);
           setStep("result");
           const sc = computeScore(vr);
+          const localId = `local-${Date.now().toString(36).toUpperCase()}`;
+          const entry: TeamReport = { ...vr, id: localId, score: sc, statusKey: scoreToStatusKey(sc), createdAt: null };
+          sessionReports.unshift(entry);
+          setPersonalReportId(localId);
           saveReport({ ...vr, score: sc, statusKey: scoreToStatusKey(sc) })
-            .then((id) => setPersonalReportId(id))
+            .then((id) => { entry.id = id; setPersonalReportId(id); })
             .catch((e) => console.warn("Firestore保存エラー:", e));
           return;
         }
@@ -452,8 +460,12 @@ export default function VitalSensingDemo() {
       setResult(pattern);
       setStep("result");
       const sc = computeScore(pattern);
+      const localId = `local-${Date.now().toString(36).toUpperCase()}`;
+      const entry: TeamReport = { ...pattern, id: localId, score: sc, statusKey: scoreToStatusKey(sc), createdAt: null };
+      sessionReports.unshift(entry);
+      setPersonalReportId(localId);
       saveReport({ ...pattern, score: sc, statusKey: scoreToStatusKey(sc) })
-        .then((id) => setPersonalReportId(id))
+        .then((id) => { entry.id = id; setPersonalReportId(id); })
         .catch((e) => console.warn("Firestore保存エラー:", e));
     }
   }, []);
@@ -499,8 +511,12 @@ export default function VitalSensingDemo() {
         setResult(fb);
         setStep("result");
         const sc = computeScore(fb);
+        const localId = `local-${Date.now().toString(36).toUpperCase()}`;
+        const entry: TeamReport = { ...fb, id: localId, score: sc, statusKey: scoreToStatusKey(sc), createdAt: null };
+        sessionReports.unshift(entry);
+        setPersonalReportId(localId);
         saveReport({ ...fb, score: sc, statusKey: scoreToStatusKey(sc) })
-          .then((id) => setPersonalReportId(id))
+          .then((id) => { entry.id = id; setPersonalReportId(id); })
           .catch((e) => console.warn("Firestore保存エラー:", e));
       }
     };
@@ -600,12 +616,17 @@ export default function VitalSensingDemo() {
   useEffect(() => { return () => { stopCamera(); }; }, [stopCamera]);
 
   const goToTeamReport = useCallback(async () => {
+    setTeamLoading(true);
     try {
       const reports = await getAllReports();
-      setTeamReports(reports);
+      setTeamReports(reports.length > 0 ? reports : [...sessionReports]);
       setStep("team");
     } catch (e) {
-      console.warn("チームレポート取得エラー:", e);
+      console.warn("Firestore取得エラー、セッションデータを使用:", e);
+      setTeamReports([...sessionReports]);
+      setStep("team");
+    } finally {
+      setTeamLoading(false);
     }
   }, []);
 
@@ -852,7 +873,9 @@ export default function VitalSensingDemo() {
                 <span className="report-id-value">{personalReportId ?? "..."}</span>
               </div>
               <button className="btn-reset" onClick={handleReset}>{translations[language].backButton}</button>
-              <button className="btn-team" onClick={goToTeamReport}>{translations[language].teamReportBtn}</button>
+              <button className="btn-team" onClick={goToTeamReport} disabled={teamLoading} style={{ opacity: teamLoading ? 0.7 : 1 }}>
+                {teamLoading ? "..." : translations[language].teamReportBtn}
+              </button>
             </div>
           );
         })()}
