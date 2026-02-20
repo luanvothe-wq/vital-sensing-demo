@@ -1,6 +1,8 @@
 import { collection, addDoc, getDocs, serverTimestamp, query, orderBy } from "firebase/firestore";
 import { db } from "./firebase";
 
+const COLLECTION = process.env.NODE_ENV === "production" ? "vital_reports" : "vital_reports_dev";
+
 export interface TeamReport {
   id: string;
   bpm: string;
@@ -14,7 +16,7 @@ export interface TeamReport {
 }
 
 export async function saveReport(data: Omit<TeamReport, "id" | "createdAt">): Promise<string> {
-  const docRef = await addDoc(collection(db, "vital_reports"), {
+  const docRef = await addDoc(collection(db, COLLECTION), {
     ...data,
     createdAt: serverTimestamp(),
   });
@@ -22,7 +24,7 @@ export async function saveReport(data: Omit<TeamReport, "id" | "createdAt">): Pr
 }
 
 export async function getAllReports(): Promise<TeamReport[]> {
-  const q = query(collection(db, "vital_reports"), orderBy("createdAt", "desc"));
+  const q = query(collection(db, COLLECTION), orderBy("createdAt", "desc"));
   const snapshot = await getDocs(q);
   return snapshot.docs.map((doc) => ({
     id: doc.id,

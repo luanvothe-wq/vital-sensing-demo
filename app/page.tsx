@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useEffect, useCallback, Fragment } from "react";
 import { type ThemePalette, getThemeColors } from "./theme-palettes";
 import { saveReport, getAllReports, type TeamReport } from "../lib/reportService";
 
@@ -19,6 +19,11 @@ let mockCycleIndex = 0;
 
 // Firebase未設定時のセッション内フォールバックストア
 const sessionReports: import("../lib/reportService").TeamReport[] = [];
+
+// チームレポートキャッシュ（新しい個人レポートが来るまで再利用）
+let cachedTeamData: import("../lib/reportService").TeamReport[] | null = null;
+let cachedSessionVersion = -1;
+let cachedGeneratedAt: Date | null = null;
 
 // ============================================
 // 型定義
@@ -97,13 +102,24 @@ const translations = {
     avgDiastolic: "平均拡張期血圧",
     scoreDistTitle: "健康スコア分布",
     teamCommentTitle: "総合評価",
-    teamCommentExcellent: "チーム全体の健康状態は非常に良好です。7割以上のメンバーが良好な状態にあり、心血管系の健康管理が全体的に行き届いています。この状態を維持するため、定期的な健康チェックを継続してください。",
-    teamCommentGood: "過半数のメンバーが良好な健康状態にあります。引き続き全員が健康管理を意識することで、チーム全体のウェルネス向上につながります。",
-    teamCommentCaution: "注意が必要なメンバーが多い傾向にあります。ストレス・睡眠不足・生活習慣の乱れが影響している可能性があります。チーム全体でのウェルネスプログラムの導入をご検討ください。",
-    teamCommentBalanced: "チームメンバーの健康状態はバランスよく分布しています。良好な状態のメンバーが中心ですが、引き続き全員が健康管理を意識することをお勧めします。",
+    teamCommentExcellent: "チーム全体の健康状態は非常に良好です。7割以上のメンバーが最良のコンディションにあり、心血管系の健康管理が組織全体に浸透していることを示しています。組織マネジメントの観点では、創造性・意思決定力・協調性がピークに達しやすい理想的な状態です。挑戦的なプロジェクトへのアサインや重要な意思決定の場面に積極的に活用してください。現在の職場環境・働き方・ウェルネス施策が機能している証拠として評価し、継続的なモニタリングで状態を維持しましょう。",
+    teamCommentGood: "過半数のメンバーが良好な健康状態にあります。チームとして安定した基盤にありますが、一定数のメンバーへの個別サポートが全体パフォーマンスの向上につながります。定期的な1on1による状況把握、業務量の偏り解消、柔軟な休暇取得の促進が有効です。ウォーキングミーティングや短時間のストレッチタイムなど、職場でできる簡単なウェルネス習慣の導入もお勧めします。",
+    teamCommentCaution: "注意が必要なメンバーが多い傾向にあります。組織管理の観点から早急な対応が求められる状態です。業務負荷の分散・再配分、強制的な休暇取得の奨励、メンタルヘルスサポートの強化を優先してください。この状態が継続すると、生産性の低下・欠勤率の上昇・離職リスクの増大につながります。マネジメント層は個別面談を実施し、EAP（従業員支援プログラム）の活用も視野に入れてください。",
+    teamCommentBalanced: "チームメンバーの健康状態はバランスよく分布しています。大きな問題はないものの、個々のメンバーの状態変化を定期的にモニタリングすることが重要です。フレックスタイムの活用・適切な業務量の維持・定期的な休暇取得を継続することで、パフォーマンスの安定と持続的な成果につながります。",
     loadingTeamReport: "チームレポートを読み込んでいます...",
     noDataYet: "まだデータがありません",
     people: "人",
+    avgBpmDesc: "身体的疲労・ストレス負荷の目安。業務の強度や職場の緊張レベルを反映します。チーム平均が90bpm超の場合は業務強度の見直しを推奨します。",
+    avgSysDesc: "精神的プレッシャーや職場環境の緊張指標。継続的な高値（130mmHg超）は業務負荷の見直しシグナルです。",
+    avgDiaDesc: "自律神経のバランスと休養の質を示します。高値が続く場合（85mmHg超）は十分な休息が確保できていない可能性があります。",
+    managementTitle: "マネジメント指標",
+    wellnessRateLabel: "チーム健康率",
+    atRiskLabel: "要注意メンバー",
+    stressLevelLabel: "推定ストレス負荷",
+    stressLow: "低",
+    stressMid: "中程度",
+    stressHigh: "高",
+    recommendedActionsLabel: "推奨アクション",
   },
   en: {
     badge: "Demo",
@@ -170,13 +186,24 @@ const translations = {
     avgDiastolic: "Avg Diastolic BP",
     scoreDistTitle: "Health Score Distribution",
     teamCommentTitle: "Overall Assessment",
-    teamCommentExcellent: "The team's overall health is excellent. Over 70% of members are in good condition, reflecting strong cardiovascular health management. Continue regular health checks to maintain this level.",
-    teamCommentGood: "More than half of the team members are in good health. Continued awareness of health habits will improve overall team wellness.",
-    teamCommentCaution: "A significant portion of members require attention. Stress, lack of sleep, or lifestyle factors may be contributing. Consider introducing team wellness programs and regular health screenings.",
-    teamCommentBalanced: "The team's health distribution is balanced. Most members are in good condition. Continued individual health awareness will contribute to the team's overall wellness improvement.",
+    teamCommentExcellent: "The team's overall health is excellent. Over 70% of members are in peak condition, reflecting strong cardiovascular health management across the organization. From an organizational perspective, this represents an ideal state for creativity, decision-making, and collaboration. Leverage this window for high-stakes projects and critical decisions. Acknowledge that current workplace culture and wellness initiatives are working — continue regular monitoring to sustain this level.",
+    teamCommentGood: "More than half of the team is in good health, providing a stable organizational foundation. Individual support for at-risk members will elevate overall performance. Regular 1-on-1s, balanced workload distribution, and flexible leave-taking are effective levers. Consider simple workplace wellness habits such as walking meetings or short stretch breaks to further improve team condition.",
+    teamCommentCaution: "A significant portion of members require attention — immediate action is recommended from an organizational standpoint. Prioritize workload redistribution, enforced leave-taking, and strengthened mental health support. Prolonged states like this lead to reduced productivity, increased absenteeism, and higher turnover risk. Managers should conduct individual check-ins and consider activating an Employee Assistance Program (EAP).",
+    teamCommentBalanced: "The team's health is evenly distributed with no major concerns, but regular monitoring of individual changes is essential. Continuing flexible work arrangements, balanced workloads, and periodic leave will sustain performance stability and long-term organizational output.",
     loadingTeamReport: "Loading team report...",
     noDataYet: "No data yet",
     people: " people",
+    avgBpmDesc: "Indicator of physical fatigue and stress load, reflecting work intensity and workplace tension. Average above 90 bpm warrants workload review.",
+    avgSysDesc: "Indicator of mental pressure and workplace tension. Sustained high values (>130 mmHg) signal need for workload review.",
+    avgDiaDesc: "Reflects autonomic nervous balance and sleep/recovery quality. Sustained high values (>85 mmHg) suggest insufficient rest.",
+    managementTitle: "Management Insights",
+    wellnessRateLabel: "Wellness Rate",
+    atRiskLabel: "At-Risk Members",
+    stressLevelLabel: "Est. Stress Level",
+    stressLow: "Low",
+    stressMid: "Moderate",
+    stressHigh: "High",
+    recommendedActionsLabel: "Recommended Actions",
   },
 };
 
@@ -234,6 +261,8 @@ export default function VitalSensingDemo() {
   const [personalReportId, setPersonalReportId] = useState<string | null>(null);
   const [teamReports, setTeamReports] = useState<TeamReport[]>([]);
   const [teamLoading, setTeamLoading] = useState(false);
+  const [teamGeneratedAt, setTeamGeneratedAt] = useState<Date | null>(null);
+  const [teamProgress, setTeamProgress] = useState(0);
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
@@ -435,7 +464,7 @@ export default function VitalSensingDemo() {
           setStep("result");
           const sc = computeScore(vr);
           const localId = `local-${Date.now().toString(36).toUpperCase()}`;
-          const entry: TeamReport = { ...vr, id: localId, score: sc, statusKey: scoreToStatusKey(sc), createdAt: null };
+          const entry: TeamReport = { ...vr, id: localId, score: sc, statusKey: scoreToStatusKey(sc), createdAt: { toDate: () => new Date() } };
           sessionReports.unshift(entry);
           setPersonalReportId(localId);
           saveReport({ ...vr, score: sc, statusKey: scoreToStatusKey(sc) })
@@ -461,7 +490,7 @@ export default function VitalSensingDemo() {
       setStep("result");
       const sc = computeScore(pattern);
       const localId = `local-${Date.now().toString(36).toUpperCase()}`;
-      const entry: TeamReport = { ...pattern, id: localId, score: sc, statusKey: scoreToStatusKey(sc), createdAt: null };
+      const entry: TeamReport = { ...pattern, id: localId, score: sc, statusKey: scoreToStatusKey(sc), createdAt: { toDate: () => new Date() } };
       sessionReports.unshift(entry);
       setPersonalReportId(localId);
       saveReport({ ...pattern, score: sc, statusKey: scoreToStatusKey(sc) })
@@ -512,7 +541,7 @@ export default function VitalSensingDemo() {
         setStep("result");
         const sc = computeScore(fb);
         const localId = `local-${Date.now().toString(36).toUpperCase()}`;
-        const entry: TeamReport = { ...fb, id: localId, score: sc, statusKey: scoreToStatusKey(sc), createdAt: null };
+        const entry: TeamReport = { ...fb, id: localId, score: sc, statusKey: scoreToStatusKey(sc), createdAt: { toDate: () => new Date() } };
         sessionReports.unshift(entry);
         setPersonalReportId(localId);
         saveReport({ ...fb, score: sc, statusKey: scoreToStatusKey(sc) })
@@ -609,25 +638,57 @@ export default function VitalSensingDemo() {
   const handleReset = useCallback(() => {
     stopCamera(); isRecordingRef.current = false; hasStartedRef.current = false;
     setStep("start"); setResult(null); setErrorMessage(""); setCountdown(6); setShowAlignAlert(false); setFaceStatus("no-face");
-    setPersonalReportId(null); setTeamReports([]);
+    setPersonalReportId(null); setTeamReports([]); setTeamGeneratedAt(null); setTeamProgress(0);
     chunksRef.current = []; countdownRef.current = 6;
   }, [stopCamera]);
 
   useEffect(() => { return () => { stopCamera(); }; }, [stopCamera]);
 
   const goToTeamReport = useCallback(async () => {
-    setTeamLoading(true);
-    try {
-      const reports = await getAllReports();
-      setTeamReports(reports.length > 0 ? reports : [...sessionReports]);
+    const currentVersion = sessionReports.length;
+    // キャッシュが有効（新しい個人レポートなし）なら即座に表示
+    if (cachedTeamData && cachedSessionVersion === currentVersion && cachedGeneratedAt) {
+      setTeamReports(cachedTeamData);
+      setTeamGeneratedAt(cachedGeneratedAt);
       setStep("team");
+      return;
+    }
+    // キャッシュ無効 → プログレスアニメーション表示してフェッチ
+    setTeamLoading(true);
+    setTeamProgress(0);
+    setStep("team");
+    // 時間ベースの線形進捗（常に動き続ける）
+    const startTime = Date.now();
+    const progressInterval = setInterval(() => {
+      const elapsed = Date.now() - startTime;
+      // 0-3秒で0→75%、3-8秒で75→93%（常に動き続ける）
+      const target = elapsed < 3000
+        ? (elapsed / 3000) * 75
+        : 75 + Math.min(18, ((elapsed - 3000) / 5000) * 18);
+      setTeamProgress(Math.min(93, Math.round(target)));
+    }, 100);
+    const now = new Date();
+    let data: TeamReport[] = [...sessionReports];
+    try {
+      // 5秒でタイムアウト（Firebase未設定時の長時間待機を防ぐ）
+      const fetchPromise: Promise<TeamReport[]> = getAllReports();
+      const timeoutPromise: Promise<never> = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error("タイムアウト")), 5000)
+      );
+      const reports = await Promise.race([fetchPromise, timeoutPromise]);
+      data = reports.length > 0 ? reports : [...sessionReports];
     } catch (e) {
       console.warn("Firestore取得エラー、セッションデータを使用:", e);
-      setTeamReports([...sessionReports]);
-      setStep("team");
-    } finally {
-      setTeamLoading(false);
     }
+    cachedTeamData = data;
+    cachedSessionVersion = currentVersion;
+    cachedGeneratedAt = now;
+    clearInterval(progressInterval);
+    setTeamProgress(100);
+    await new Promise((r) => setTimeout(r, 500));
+    setTeamReports(data);
+    setTeamGeneratedAt(now);
+    setTeamLoading(false);
   }, []);
 
   // ------------------------------------------
@@ -738,7 +799,7 @@ export default function VitalSensingDemo() {
         .report-id-value { font-size:11px; font-weight:600; color:${currentTheme.accent}; font-family:monospace; letter-spacing:.04em; }
         .btn-team { width:100%; padding:16px; border:none; border-radius:14px; background:linear-gradient(135deg,#1e50a0,#2a6db8); color:#fff; font-size:15px; font-weight:600; cursor:pointer; transition:all .2s ease; font-family:"Noto Sans JP",sans-serif; margin-top:10px; box-shadow:0 4px 16px rgba(30,80,160,.25); }
         .btn-team:active { transform:scale(.98); }
-        .btn-secondary { width:100%; padding:14px; border:1px solid ${currentTheme.cardBorder}; border-radius:14px; background:${isDark ? 'rgba(255,255,255,.06)' : 'rgba(0,0,0,.04)'}; color:${currentTheme.text}; font-size:14px; font-weight:600; cursor:pointer; transition:all .2s ease; font-family:"Noto Sans JP",sans-serif; margin-top:10px; }
+        .btn-secondary { width:100%; padding:16px; border:none; border-radius:14px; background:linear-gradient(135deg,#1e50a0,#2a6db8); color:#fff; font-size:15px; font-weight:600; cursor:pointer; transition:all .2s ease; font-family:"Noto Sans JP",sans-serif; margin-top:10px; box-shadow:0 4px 16px rgba(30,80,160,.25); }
         .btn-secondary:active { transform:scale(.98); }
         .team-screen { width:100%; max-width:420px; animation:fadeInUp .5s ease; padding-top:20px; padding-bottom:40px; }
         .team-header { text-align:center; margin-bottom:20px; }
@@ -778,7 +839,7 @@ export default function VitalSensingDemo() {
       <div className="bg-gradient" />
 
       <header className="header">
-        <button className="logo" onClick={() => { setStep("start"); setResult(null); setErrorMessage(""); setCountdown(6); setShowAlignAlert(false); setFaceStatus("no-face"); setPersonalReportId(null); setTeamReports([]); }}>Vital Sensing</button>
+        <button className="logo" onClick={() => { setStep("start"); setResult(null); setErrorMessage(""); setCountdown(6); setShowAlignAlert(false); setFaceStatus("no-face"); setPersonalReportId(null); setTeamReports([]); setTeamGeneratedAt(null); }}>Vital Sensing</button>
         <select
           className="palette-selector"
           value={themePalette}
@@ -872,26 +933,91 @@ export default function VitalSensingDemo() {
                 <span className="report-id-label">{translations[language].reportIdLabel}</span>
                 <span className="report-id-value">{personalReportId ?? "..."}</span>
               </div>
-              <button className="btn-reset" onClick={handleReset}>{translations[language].backButton}</button>
               <button className="btn-team" onClick={goToTeamReport} disabled={teamLoading} style={{ opacity: teamLoading ? 0.7 : 1 }}>
                 {teamLoading ? "..." : translations[language].teamReportBtn}
               </button>
+              <button className="btn-reset" onClick={handleReset}>{translations[language].backButton}</button>
             </div>
           );
         })()}
 
         {step === "team" && (() => {
           const t = translations[language];
+          const lastDate = teamGeneratedAt
+            ? teamGeneratedAt.toLocaleString(language === "ja" ? "ja-JP" : "en-US", { year: "numeric", month: "long", day: "numeric", hour: "2-digit", minute: "2-digit", hour12: false })
+            : "—";
+
+          // プログレスアニメーション：ヘッダーは即表示、その下に進捗UI
+          if (teamLoading) {
+            const circ = 2 * Math.PI * 50;
+            const offset = circ * (1 - teamProgress / 100);
+            const msgIdx = teamProgress < 30 ? 0 : teamProgress < 60 ? 1 : teamProgress < 90 ? 2 : 3;
+            const msgs = language === "ja"
+              ? ["データを収集しています...", "バイタルデータを集計中...", "チームレポートを生成中...", "分析を仕上げています..."]
+              : ["Collecting data...", "Aggregating vital data...", "Generating team report...", "Finalizing analysis..."];
+            const stepLabels = language === "ja"
+              ? ["データ収集", "集計", "レポート生成", "仕上げ"]
+              : ["Collection", "Aggregation", "Generation", "Finalize"];
+            const stepThresholds = [0, 30, 60, 90];
+            return (
+              <div className="team-screen">
+                <div className="team-header"><h2>{t.teamReportTitle}</h2><p>{t.teamReportSubtitle}</p></div>
+                <div style={{ display: "flex", flexDirection: "column", alignItems: "center", padding: "48px 24px 32px", gap: "20px" }}>
+                  {/* 円形プログレスリング */}
+                  <div style={{ position: "relative", width: "120px", height: "120px" }}>
+                    <svg width="120" height="120" viewBox="0 0 120 120" style={{ transform: "rotate(-90deg)" }}>
+                      <circle cx="60" cy="60" r="50" fill="none" stroke={isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.08)"} strokeWidth="8" />
+                      <circle cx="60" cy="60" r="50" fill="none" stroke={currentTheme.accent} strokeWidth="8"
+                        strokeDasharray={circ} strokeDashoffset={offset} strokeLinecap="round"
+                        style={{ transition: "stroke-dashoffset 0.3s ease" }} />
+                    </svg>
+                    <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", fontSize: "26px", fontWeight: 700, color: currentTheme.text }}>
+                      {teamProgress}%
+                    </div>
+                  </div>
+                  {/* ステータスメッセージ */}
+                  <div style={{ fontSize: "14px", fontWeight: 500, color: currentTheme.textSecondary, textAlign: "center", minHeight: "22px" }}>
+                    {msgs[msgIdx]}
+                  </div>
+                  {/* ステップインジケーター */}
+                  <div style={{ display: "flex", justifyContent: "space-between", width: "100%", maxWidth: "270px" }}>
+                    {stepThresholds.map((threshold, i) => {
+                      const active = teamProgress >= threshold;
+                      return (
+                        <Fragment key={i}>
+                          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "6px", flexShrink: 0 }}>
+                            <div style={{ width: "10px", height: "10px", borderRadius: "50%", background: active ? currentTheme.accent : (isDark ? "rgba(255,255,255,0.15)" : "rgba(0,0,0,0.15)"), transition: "background 0.3s ease", boxShadow: active ? `0 0 6px ${currentTheme.accent}80` : "none" }} />
+                            <div style={{ fontSize: "9px", color: active ? currentTheme.textSecondary : currentTheme.textTertiary, textAlign: "center", lineHeight: 1.3, width: "52px", transition: "color 0.3s ease" }}>
+                              {stepLabels[i]}
+                            </div>
+                          </div>
+                          {i < 3 && (
+                            <div style={{ flex: 1, height: "2px", marginTop: "4px", background: teamProgress >= stepThresholds[i + 1] ? currentTheme.accent : (isDark ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.1)"), transition: "background 0.3s ease" }} />
+                          )}
+                        </Fragment>
+                      );
+                    })}
+                  </div>
+                  {/* ヒント */}
+                  <div style={{ fontSize: "11px", color: currentTheme.textTertiary, textAlign: "center" }}>
+                    {language === "ja" ? "通常10秒以内に完了します" : "Usually completes within 10 seconds"}
+                  </div>
+                </div>
+              </div>
+            );
+          }
+
           const reports = teamReports;
           const total = reports.length;
           if (total === 0) return (
             <div className="team-screen">
               <div className="team-header"><h2>{t.teamReportTitle}</h2><p>{t.teamReportSubtitle}</p></div>
               <p style={{ textAlign: "center", color: currentTheme.textSecondary, fontSize: "14px" }}>{t.noDataYet}</p>
-              <button className="btn-reset" style={{ marginTop: "24px" }} onClick={handleReset}>{t.backButton}</button>
-              <button className="btn-secondary" onClick={() => setStep("result")}>{t.backToPersonalBtn}</button>
+              <button className="btn-secondary" style={{ marginTop: "24px" }} onClick={() => setStep("result")}>{t.backToPersonalBtn}</button>
+              <button className="btn-reset" onClick={handleReset}>{t.backButton}</button>
             </div>
           );
+
           const avgBpm = Math.round(reports.reduce((s, r) => s + parseFloat(r.bpm), 0) / total);
           const avgSys = Math.round(reports.reduce((s, r) => s + parseFloat(r.bpv1), 0) / total);
           const avgDia = Math.round(reports.reduce((s, r) => s + parseFloat(r.bpv0), 0) / total);
@@ -900,8 +1026,27 @@ export default function VitalSensingDemo() {
           const goodPct = (dist.excellent + dist.good) / total;
           const cautionPct = (dist.caution + dist.check) / total;
           const teamComment = goodPct >= 0.7 ? t.teamCommentExcellent : goodPct >= 0.5 ? t.teamCommentGood : cautionPct >= 0.5 ? t.teamCommentCaution : t.teamCommentBalanced;
-          const lastRaw = reports[0]?.createdAt;
-          const lastDate = lastRaw?.toDate ? lastRaw.toDate().toLocaleDateString(language === "ja" ? "ja-JP" : "en-US", { year: "numeric", month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" }) : "—";
+          const wellnessRate = Math.round((dist.excellent + dist.good) / total * 100);
+          const atRiskCount = dist.caution + dist.check;
+          const avgLtv = reports.reduce((s, r) => s + parseFloat(r.LTv || "1.5"), 0) / total;
+          const stressKey = avgLtv < 1.55 ? "stressLow" : avgLtv < 1.75 ? "stressMid" : "stressHigh";
+          const stressColor = avgLtv < 1.55 ? "#4ade80" : avgLtv < 1.75 ? "#fbbf24" : "#f87171";
+          const actions: string[] = [];
+          if (language === "ja") {
+            if (dist.check > 0) actions.push(`要確認メンバーが${dist.check}名います。個別に医療機関への受診を促してください。`);
+            if (cautionPct >= 0.3) actions.push("要注意メンバーに対し、1on1面談で業務量・睡眠・ストレスを把握してください。");
+            if (avgBpm > 85) actions.push("チーム平均心拍数がやや高め。業務強度の見直しと休憩時間の確保を推奨します。");
+            if (stressKey === "stressHigh") actions.push("心血管負荷が高い傾向。連続する高負荷プロジェクトを避け、休暇取得を優先してください。");
+            if (goodPct >= 0.7 && dist.check === 0) actions.push("コンディションは良好。重要な意思決定・挑戦的なプロジェクト推進に適した時期です。");
+            if (actions.length < 2) actions.push("継続的なモニタリングで状態変化を早期にキャッチしてください。");
+          } else {
+            if (dist.check > 0) actions.push(`${dist.check} member(s) need attention — encourage individual medical consultation.`);
+            if (cautionPct >= 0.3) actions.push("Hold 1-on-1s with at-risk members to assess workload, sleep, and stress.");
+            if (avgBpm > 85) actions.push("Average heart rate is elevated. Review work intensity and ensure adequate rest periods.");
+            if (stressKey === "stressHigh") actions.push("High cardiovascular load — avoid stacking high-intensity projects and promote leave-taking.");
+            if (goodPct >= 0.7 && dist.check === 0) actions.push("Team is in peak condition — ideal time for high-stakes decisions and challenging projects.");
+            if (actions.length < 2) actions.push("Continue regular monitoring to detect changes early.");
+          }
           const distRows = [
             { key: "excellent", label: t.statusExcellent, color: "#22d3ee" },
             { key: "good",      label: t.statusGood,      color: "#4ade80" },
@@ -909,25 +1054,41 @@ export default function VitalSensingDemo() {
             { key: "caution",   label: t.statusCaution,   color: "#fbbf24" },
             { key: "check",     label: t.statusCheck,     color: "#f87171" },
           ];
+          const avgItems = [
+            { label: t.avgHeartRate, sub: "Heart Rate",   desc: t.avgBpmDesc, val: avgBpm, unit: "bpm" },
+            { label: t.avgSystolic,  sub: "Systolic BP",  desc: t.avgSysDesc, val: avgSys, unit: "mmHg" },
+            { label: t.avgDiastolic, sub: "Diastolic BP", desc: t.avgDiaDesc, val: avgDia, unit: "mmHg" },
+          ];
           return (
             <div className="team-screen">
               <div className="team-header"><h2>{t.teamReportTitle}</h2><p>{t.teamReportSubtitle}</p></div>
+              {/* 1. 総合評価（重複タイトル削除） */}
+              <div className="team-comment-box">
+                <div className="team-comment-title">{t.teamCommentTitle}</div>
+                <div className="team-comment-text">{teamComment}</div>
+              </div>
+              {/* 2. 推奨アクション（総合評価の直下） */}
+              <div className="team-comment-box" style={{ marginBottom: "20px" }}>
+                <div className="team-comment-title">{t.recommendedActionsLabel}</div>
+                {actions.map((action, i) => (
+                  <div key={i} style={{ display: "flex", gap: "8px", marginTop: i === 0 ? 0 : "8px" }}>
+                    <span style={{ color: currentTheme.accent, flexShrink: 0, fontWeight: 700 }}>•</span>
+                    <span style={{ fontSize: "12px", color: currentTheme.textSecondary, lineHeight: 1.65 }}>{action}</span>
+                  </div>
+                ))}
+              </div>
+              {/* 3. 測定人数・最終更新 */}
               <div className="team-meta">
                 <div className="team-meta-card">
                   <div className="team-meta-label">{t.totalMeasurements}</div>
-                  <div className="team-meta-value">{total}<span className="team-meta-unit"> {t.people}</span></div>
+                  <div className="team-meta-value">{total}<span className="team-meta-unit">{t.people}</span></div>
                 </div>
                 <div className="team-meta-card">
                   <div className="team-meta-label">{t.lastUpdated}</div>
-                  <div style={{ fontSize: "11px", fontWeight: 600, color: currentTheme.text, marginTop: "4px" }}>{lastDate}</div>
+                  <div style={{ fontSize: "11px", fontWeight: 600, color: currentTheme.text, marginTop: "4px", lineHeight: 1.4 }}>{lastDate}</div>
                 </div>
               </div>
-              <p className="team-section-title">{t.avgHeartRate} / {t.avgSystolic} / {t.avgDiastolic}</p>
-              <div className="team-avg-cards" style={{ marginBottom: "20px" }}>
-                <div className="team-avg-card"><div className="team-avg-label">{t.avgHeartRate}<br/>Heart Rate</div><div className="team-avg-value">{avgBpm}</div><div className="team-avg-unit">bpm</div></div>
-                <div className="team-avg-card"><div className="team-avg-label">{t.avgSystolic}<br/>Systolic</div><div className="team-avg-value">{avgSys}</div><div className="team-avg-unit">mmHg</div></div>
-                <div className="team-avg-card"><div className="team-avg-label">{t.avgDiastolic}<br/>Diastolic</div><div className="team-avg-value">{avgDia}</div><div className="team-avg-unit">mmHg</div></div>
-              </div>
+              {/* 4. 健康スコア分布 */}
               <p className="team-section-title">{t.scoreDistTitle}</p>
               <div className="score-dist">
                 {distRows.map((row) => {
@@ -942,13 +1103,43 @@ export default function VitalSensingDemo() {
                   );
                 })}
               </div>
-              <p className="team-section-title">{t.teamCommentTitle}</p>
-              <div className="team-comment-box">
-                <div className="team-comment-title">{t.teamCommentTitle}</div>
-                <div className="team-comment-text">{teamComment}</div>
+              {/* 5. マネジメント指標 */}
+              <p className="team-section-title">{t.managementTitle}</p>
+              <div className="team-meta" style={{ marginBottom: "20px" }}>
+                <div className="team-meta-card">
+                  <div className="team-meta-label">{t.wellnessRateLabel}</div>
+                  <div className="team-meta-value" style={{ color: wellnessRate >= 70 ? "#4ade80" : wellnessRate >= 50 ? "#fbbf24" : "#f87171" }}>{wellnessRate}<span className="team-meta-unit">%</span></div>
+                </div>
+                <div className="team-meta-card">
+                  <div className="team-meta-label">{t.atRiskLabel}</div>
+                  <div className="team-meta-value" style={{ color: atRiskCount === 0 ? currentTheme.text : atRiskCount / total >= 0.5 ? "#f87171" : "#fbbf24" }}>{atRiskCount}<span className="team-meta-unit">{language === "ja" ? "人" : " ppl"}</span></div>
+                </div>
+                <div className="team-meta-card">
+                  <div className="team-meta-label">{t.stressLevelLabel}</div>
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "5px", marginTop: "6px" }}>
+                    <div style={{ width: "8px", height: "8px", borderRadius: "50%", background: stressColor, flexShrink: 0 }} />
+                    <span style={{ fontSize: "13px", fontWeight: 700, color: stressColor }}>{t[stressKey as keyof typeof t]}</span>
+                  </div>
+                </div>
               </div>
-              <button className="btn-reset" onClick={handleReset}>{t.backButton}</button>
+              {/* 6. 平均値（説明文付き） */}
+              <p className="team-section-title">{t.avgHeartRate} / {t.avgSystolic} / {t.avgDiastolic}</p>
+              <div className="vital-cards" style={{ marginBottom: "20px" }}>
+                {avgItems.map((item, i) => (
+                  <div className="vital-card" key={i}>
+                    <div className="vital-card-left" style={{ flex: 1, minWidth: 0 }}>
+                      <div className="vital-card-label">{item.label}</div>
+                      <div className="vital-card-sublabel">{item.sub}</div>
+                      <div style={{ fontSize: "12px", color: currentTheme.textSecondary, lineHeight: 1.6, marginTop: "4px" }}>{item.desc}</div>
+                    </div>
+                    <div className="vital-card-right" style={{ flexShrink: 0, marginLeft: "12px" }}>
+                      <div className="vital-card-value">{item.val}<span className="vital-card-unit"> {item.unit}</span></div>
+                    </div>
+                  </div>
+                ))}
+              </div>
               <button className="btn-secondary" onClick={() => setStep("result")}>{t.backToPersonalBtn}</button>
+              <button className="btn-reset" onClick={handleReset}>{t.backButton}</button>
             </div>
           );
         })()}
