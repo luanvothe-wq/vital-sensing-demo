@@ -743,6 +743,9 @@ export default function VitalSensingDemo() {
         .lang-toggle { background:${isDark ? 'rgba(255,255,255,.06)' : 'rgba(0,0,0,.04)'}; border:1px solid ${isDark ? 'rgba(255,255,255,.1)' : 'rgba(0,0,0,.1)'}; border-radius:8px; padding:4px 10px; font-size:11px; color:${currentTheme.textSecondary}; cursor:pointer; transition:all .2s ease; font-family:"Noto Sans JP",sans-serif; font-weight:500; }
         .lang-toggle:hover { background:${isDark ? 'rgba(255,255,255,.1)' : 'rgba(0,0,0,.08)'}; }
         .badge { font-size:10px; padding:3px 8px; border-radius:20px; background:${isDark ? 'rgba(60,140,220,.15)' : 'rgba(59,130,246,.15)'}; color:${currentTheme.accent}; font-weight:500; }
+        .btn-header-team { background:${isDark ? 'rgba(30,80,160,.25)' : 'rgba(30,80,160,.1)'}; border:1px solid ${isDark ? 'rgba(100,180,255,.25)' : 'rgba(30,80,160,.2)'}; border-radius:8px; padding:4px 10px; font-size:11px; color:${currentTheme.accent}; cursor:pointer; transition:all .2s ease; font-family:"Noto Sans JP",sans-serif; font-weight:600; }
+        .btn-header-team:hover { background:${isDark ? 'rgba(30,80,160,.4)' : 'rgba(30,80,160,.18)'}; }
+        .btn-header-team:disabled { opacity:0.5; cursor:default; }
         .main-content { flex:1; display:flex; flex-direction:column; align-items:center; justify-content:${(step === "result" || step === "team") ? "flex-start" : "center"}; position:relative; z-index:10; padding:20px; overflow-y:auto; }
         .start-screen { text-align:center; max-width:400px; animation:fadeInUp .6s ease; }
         .start-screen,.error-screen { animation:fadeInUp .4s ease; text-align:center; max-width:520px; margin:0 auto; padding:0 24px; }
@@ -839,7 +842,10 @@ export default function VitalSensingDemo() {
       <div className="bg-gradient" />
 
       <header className="header">
-        <button className="logo" onClick={() => { setStep("start"); setResult(null); setErrorMessage(""); setCountdown(6); setShowAlignAlert(false); setFaceStatus("no-face"); setPersonalReportId(null); setTeamReports([]); setTeamGeneratedAt(null); }}>Vital Sensing</button>
+        <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+          <button className="logo" onClick={() => { setStep("start"); setResult(null); setErrorMessage(""); setCountdown(6); setShowAlignAlert(false); setFaceStatus("no-face"); setPersonalReportId(null); setTeamReports([]); setTeamGeneratedAt(null); setTeamProgress(0); }}>Vital Sensing</button>
+          <span className="badge">{translations[language].badge}</span>
+        </div>
         <select
           className="palette-selector"
           value={themePalette}
@@ -849,10 +855,12 @@ export default function VitalSensingDemo() {
           <option value="clean-white">Clean White</option>
         </select>
         <div className="lang-badge-group">
+          <button className="btn-header-team" onClick={goToTeamReport} disabled={teamLoading}>
+            {language === "ja" ? "チームレポート" : "Team Report"}
+          </button>
           <button className="lang-toggle" onClick={() => setLanguage(language === "ja" ? "en" : "ja")}>
             🌐 {language.toUpperCase()}
           </button>
-          <span className="badge">{translations[language].badge}</span>
         </div>
       </header>
 
