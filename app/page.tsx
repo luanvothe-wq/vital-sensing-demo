@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect, useCallback, Fragment } from "react";
-import { type ThemePalette, getThemeColors } from "./theme-palettes";
+import { type ThemePalette, getThemeColors, type ThemeColors } from "./theme-palettes";
 import { type TeamReport } from "../lib/reportService";
 
 
@@ -203,6 +203,37 @@ const translations = {
 
 // テーマカラーパレットは theme-palettes.ts で定義
 
+// CSS custom propertiesをtheme変更時に:rootへ同期する
+function syncThemeCSSVars(theme: ThemeColors, isDark: boolean) {
+  const root = document.documentElement;
+  root.style.setProperty('--theme-primary', theme.primary);
+  root.style.setProperty('--theme-primary-light', theme.primaryLight);
+  root.style.setProperty('--theme-background', theme.background);
+  root.style.setProperty('--theme-accent', theme.accent);
+  root.style.setProperty('--theme-text', theme.text);
+  root.style.setProperty('--theme-text-secondary', theme.textSecondary);
+  root.style.setProperty('--theme-text-tertiary', theme.textTertiary);
+  root.style.setProperty('--theme-card-bg', theme.cardBg);
+  root.style.setProperty('--theme-card-border', theme.cardBorder);
+  root.style.setProperty('--theme-gradient', theme.gradient);
+  // isDark-dependent helper vars
+  root.style.setProperty('--theme-border-subtle', isDark ? 'rgba(255,255,255,.06)' : 'rgba(0,0,0,.06)');
+  root.style.setProperty('--theme-hover-bg', isDark ? 'rgba(255,255,255,.06)' : 'rgba(0,0,0,.02)');
+  root.style.setProperty('--theme-hover-bg-strong', isDark ? 'rgba(255,255,255,.1)' : 'rgba(0,0,0,.08)');
+  root.style.setProperty('--theme-input-bg', isDark ? 'rgba(255,255,255,.06)' : 'rgba(0,0,0,.04)');
+  root.style.setProperty('--theme-input-border', isDark ? 'rgba(255,255,255,.1)' : 'rgba(0,0,0,.1)');
+  root.style.setProperty('--theme-badge-bg', isDark ? 'rgba(60,140,220,.15)' : 'rgba(59,130,246,.15)');
+  root.style.setProperty('--theme-btn-team-bg', isDark ? 'rgba(30,80,160,.25)' : 'rgba(30,80,160,.1)');
+  root.style.setProperty('--theme-btn-team-border', isDark ? 'rgba(100,180,255,.25)' : 'rgba(30,80,160,.2)');
+  root.style.setProperty('--theme-btn-team-hover', isDark ? 'rgba(30,80,160,.4)' : 'rgba(30,80,160,.18)');
+  root.style.setProperty('--theme-notice-bg', isDark ? 'rgba(255,180,60,.08)' : 'rgba(0,0,0,.04)');
+  root.style.setProperty('--theme-notice-border', isDark ? 'rgba(255,180,60,.15)' : theme.cardBorder);
+  root.style.setProperty('--theme-reset-bg', isDark ? 'rgba(255,255,255,.08)' : 'rgba(0,0,0,.04)');
+  root.style.setProperty('--theme-report-id-bg', isDark ? 'rgba(100,180,255,.06)' : 'rgba(59,130,246,.06)');
+  root.style.setProperty('--theme-report-id-border', isDark ? 'rgba(100,180,255,.15)' : 'rgba(59,130,246,.15)');
+  root.style.setProperty('--theme-bar-bg', isDark ? 'rgba(255,255,255,.06)' : 'rgba(0,0,0,.06)');
+}
+
 // ============================================
 // 総合評価・バイタルステータス
 // ============================================
@@ -312,6 +343,13 @@ export default function VitalSensingDemo() {
       setLanguage(savedLanguage);
     }
   }, []);
+
+  // CSS custom propertiesをテーマ変更時に同期
+  useEffect(() => {
+    const dark = themePalette === "clinical-blue";
+    const theme = getThemeColors(themePalette, dark ? "dark" : "light");
+    syncThemeCSSVars(theme, dark);
+  }, [themePalette]);
 
   // テーマパレット、言語をLocalStorageに保存
   useEffect(() => {
@@ -738,118 +776,7 @@ export default function VitalSensingDemo() {
 
   return (
     <div className="app-container">
-      <style jsx global>{`
-        @import url("https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300;400;500;600;700&display=swap");
-        * { margin:0; padding:0; box-sizing:border-box; }
-        body { font-family:"Noto Sans JP",sans-serif; background:${currentTheme.background}; color:${currentTheme.text}; overflow:hidden; -webkit-font-smoothing:antialiased; }
-        .app-container { width:100vw; height:100dvh; display:flex; flex-direction:column; position:relative; overflow:hidden; }
-        .bg-gradient { position:fixed; inset:0; background:${currentTheme.gradient},${currentTheme.background}; z-index:0; }
-        .header { position:relative; z-index:10; padding:16px 20px; display:flex; align-items:center; justify-content:space-between; border-bottom:1px solid ${isDark ? 'rgba(255,255,255,.06)' : 'rgba(0,0,0,.06)'}; }
-        .logo { font-size:14px; font-weight:600; letter-spacing:.08em; color:${currentTheme.text}; text-transform:uppercase; background:none; border:none; cursor:pointer; transition:all .2s ease; padding:0; }
-        .logo:hover { opacity:0.7; }
-        .palette-selector { position:absolute; left:50%; transform:translateX(-50%); background:${isDark ? 'rgba(255,255,255,.06)' : 'rgba(0,0,0,.04)'}; border:1px solid ${isDark ? 'rgba(255,255,255,.1)' : 'rgba(0,0,0,.1)'}; border-radius:8px; padding:6px 12px; font-size:11px; color:${currentTheme.text}; cursor:pointer; transition:all .2s ease; font-family:"Noto Sans JP",sans-serif; font-weight:500; outline:none; }
-        .palette-selector:hover { background:${isDark ? 'rgba(255,255,255,.1)' : 'rgba(0,0,0,.08)'}; border-color:${currentTheme.accent}; }
-        .palette-selector:focus { border-color:${currentTheme.accent}; box-shadow:0 0 0 2px ${currentTheme.accent}33; }
-        .lang-badge-group { display:flex; gap:8px; align-items:center; }
-        .lang-toggle { background:${isDark ? 'rgba(255,255,255,.06)' : 'rgba(0,0,0,.04)'}; border:1px solid ${isDark ? 'rgba(255,255,255,.1)' : 'rgba(0,0,0,.1)'}; border-radius:8px; padding:4px 10px; font-size:11px; color:${currentTheme.textSecondary}; cursor:pointer; transition:all .2s ease; font-family:"Noto Sans JP",sans-serif; font-weight:500; }
-        .lang-toggle:hover { background:${isDark ? 'rgba(255,255,255,.1)' : 'rgba(0,0,0,.08)'}; }
-        .badge { font-size:10px; padding:3px 8px; border-radius:20px; background:${isDark ? 'rgba(60,140,220,.15)' : 'rgba(59,130,246,.15)'}; color:${currentTheme.accent}; font-weight:500; }
-        .btn-header-team { background:${isDark ? 'rgba(30,80,160,.25)' : 'rgba(30,80,160,.1)'}; border:1px solid ${isDark ? 'rgba(100,180,255,.25)' : 'rgba(30,80,160,.2)'}; border-radius:8px; padding:4px 10px; font-size:11px; color:${currentTheme.accent}; cursor:pointer; transition:all .2s ease; font-family:"Noto Sans JP",sans-serif; font-weight:600; }
-        .btn-header-team:hover { background:${isDark ? 'rgba(30,80,160,.4)' : 'rgba(30,80,160,.18)'}; }
-        .btn-header-team:disabled { opacity:0.5; cursor:default; }
-        @media (max-width:479px) { .header { flex-wrap:wrap; padding:10px 14px; gap:8px; } .palette-selector { position:static; transform:none; order:3; width:100%; text-align:center; } }
-        .main-content { flex:1; display:flex; flex-direction:column; align-items:center; justify-content:${(step === "result" || step === "team") ? "flex-start" : "center"}; position:relative; z-index:10; padding:20px; overflow-y:auto; }
-        .start-screen { text-align:center; max-width:400px; animation:fadeInUp .6s ease; }
-        .start-screen,.error-screen { animation:fadeInUp .4s ease; text-align:center; max-width:520px; margin:0 auto; padding:0 24px; }
-        .start-icon { width:64px; height:64px; margin:0 auto 24px; color:${currentTheme.accent}; }
-        .start-icon svg { width:100%; height:100%; }
-        .start-title { font-size:28px; font-weight:700; margin-bottom:12px; color:${currentTheme.text}; }
-        .start-subtitle { font-size:14px; color:${currentTheme.textSecondary}; margin-bottom:40px; line-height:1.6; }
-        .start-steps { display:flex; flex-direction:column; gap:12px; margin-bottom:36px; text-align:left; }
-        .start-step { display:flex; align-items:center; gap:12px; padding:14px 18px; background:${currentTheme.cardBg}; border:1px solid ${currentTheme.cardBorder}; border-radius:12px; transition:all .2s ease; }
-        .start-step:hover { background:${isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.02)'}; border-color:${currentTheme.accent}; transform:translateX(4px); }
-        .step-number { width:28px; height:28px; border-radius:50%; background:${currentTheme.primary}; color:#fff; display:flex; align-items:center; justify-content:center; font-size:13px; font-weight:600; flex-shrink:0; }
-        .step-text { font-size:13px; color:${currentTheme.text}; font-weight:500; text-align:left; }
-        .btn-primary { width:100%; padding:16px 32px; border:none; border-radius:14px; background:linear-gradient(135deg,#1e50a0,#2a6db8); color:white; font-size:16px; font-weight:600; cursor:pointer; transition:all .2s ease; box-shadow:0 4px 20px rgba(30,80,160,.3); font-family:"Noto Sans JP",sans-serif; }
-        .btn-primary:active { transform:scale(.98); }
-        .disclaimer { margin-top:20px; font-size:10px; color:${currentTheme.textTertiary}; line-height:1.6; }
-        .camera-screen { width:100%; height:100%; display:flex; flex-direction:column; align-items:center; justify-content:center; position:relative; }
-        .camera-wrapper { position:relative; width:92vw; max-width:400px; aspect-ratio:3/4; border-radius:24px; overflow:hidden; box-shadow:0 12px 48px rgba(0,0,0,.4); }
-        .camera-wrapper video { width:100%; height:100%; object-fit:cover; transform:scaleX(-1); }
-        .face-guide { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; pointer-events:none; }
-        .face-oval { width:75%; height:72%; border-radius:50%; border:3px solid; box-shadow:0 0 0 2000px rgba(10,15,28,.5); transition:border-color .3s ease; }
-        .face-status-text { position:absolute; bottom:16px; left:50%; transform:translateX(-50%); font-size:12px; font-weight:600; padding:6px 16px; border-radius:20px; white-space:nowrap; }
-        .guide-text { text-align:center; margin-top:16px; font-size:14px; font-weight:500; color:${currentTheme.text}; min-height:24px; }
-        .countdown-display { margin-top:8px; font-size:48px; font-weight:700; color:#4ade80; text-shadow:0 0 24px rgba(80,200,120,.3); }
-        .btn-capture { margin-top:16px; width:72px; height:72px; border-radius:50%; border:3px solid rgba(100,180,255,.4); background:rgba(60,140,220,.2); cursor:pointer; display:flex; align-items:center; justify-content:center; transition:all .2s ease; }
-        .btn-capture:active { transform:scale(.92); }
-        .btn-capture-inner { width:56px; height:56px; border-radius:50%; background:linear-gradient(135deg,#1e50a0,#3c8cc8); box-shadow:0 4px 20px rgba(30,80,160,.4); }
-        .analyzing-screen { text-align:center; animation:fadeInUp .4s ease; }
-        .spinner { width:64px; height:64px; border-radius:50%; border:3px solid rgba(100,180,255,.1); border-top-color:#64b4ff; animation:spin 1s linear infinite; margin:0 auto 24px; }
-        .analyzing-text { font-size:16px; font-weight:500; color:${currentTheme.text}; }
-        .analyzing-sub { font-size:12px; color:${currentTheme.textSecondary}; margin-top:8px; }
-        .result-screen { width:100%; max-width:420px; animation:fadeInUp .5s ease; padding-top:20px; padding-bottom:40px; }
-        .result-header { text-align:center; margin-bottom:20px; }
-        .result-header h2 { font-size:20px; font-weight:700; color:${currentTheme.text}; }
-        .result-header p { font-size:11px; color:${currentTheme.textTertiary}; margin-top:2px; letter-spacing:.08em; }
-        .overall-eval { border-radius:16px; padding:24px 20px; margin-bottom:20px; text-align:center; border:1px solid; }
-        .overall-emoji { font-size:40px; margin-bottom:8px; }
-        .overall-label { font-size:22px; font-weight:700; margin-bottom:8px; }
-        .overall-comment { font-size:13px; color:${currentTheme.textSecondary}; line-height:1.7; }
-        .vital-cards { display:flex; flex-direction:column; gap:12px; margin-bottom:20px; }
-        .vital-card { background:${currentTheme.cardBg}; border:1px solid ${currentTheme.cardBorder}; border-radius:14px; padding:16px 18px; display:flex; align-items:center; justify-content:space-between; }
-        .vital-card-left { display:flex; flex-direction:column; gap:2px; }
-        .vital-card-label { font-size:13px; color:${currentTheme.text}; font-weight:500; }
-        .vital-card-sublabel { font-size:10px; color:${currentTheme.textTertiary}; }
-        .vital-card-right { text-align:right; display:flex; flex-direction:column; align-items:flex-end; gap:4px; }
-        .vital-card-value { font-size:28px; font-weight:700; color:${currentTheme.text}; }
-        .vital-card-unit { font-size:11px; color:${currentTheme.textSecondary}; }
-        .vital-card-status { font-size:10px; font-weight:600; padding:2px 8px; border-radius:10px; }
-        .result-notice { background:${isDark ? 'rgba(255,180,60,.08)' : 'rgba(0,0,0,.04)'}; border:1px solid ${isDark ? 'rgba(255,180,60,.15)' : currentTheme.cardBorder}; border-radius:10px; padding:12px 14px; margin-bottom:20px; }
-        .result-notice p { font-size:10px; color:${currentTheme.textSecondary}; line-height:1.6; }
-        .btn-reset { width:100%; padding:16px; border:none; border-radius:14px; background:${isDark ? 'rgba(255,255,255,.08)' : 'rgba(0,0,0,.04)'}; color:${currentTheme.text}; font-size:15px; font-weight:600; cursor:pointer; transition:all .2s ease; font-family:"Noto Sans JP",sans-serif; border:1px solid ${currentTheme.cardBorder}; }
-        .btn-reset:active { transform:scale(.98); }
-        .report-id-box { background:${isDark ? 'rgba(100,180,255,.06)' : 'rgba(59,130,246,.06)'}; border:1px solid ${isDark ? 'rgba(100,180,255,.15)' : 'rgba(59,130,246,.15)'}; border-radius:10px; padding:10px 14px; margin-bottom:12px; display:flex; align-items:center; justify-content:space-between; gap:8px; }
-        .report-id-label { font-size:10px; color:${currentTheme.textTertiary}; white-space:nowrap; }
-        .report-id-value { font-size:11px; font-weight:600; color:${currentTheme.accent}; font-family:monospace; letter-spacing:.04em; }
-        .btn-team { width:100%; padding:16px; border:none; border-radius:14px; background:linear-gradient(135deg,#1e50a0,#2a6db8); color:#fff; font-size:15px; font-weight:600; cursor:pointer; transition:all .2s ease; font-family:"Noto Sans JP",sans-serif; margin-top:10px; box-shadow:0 4px 16px rgba(30,80,160,.25); }
-        .btn-team:active { transform:scale(.98); }
-        .btn-secondary { width:100%; padding:16px; border:none; border-radius:14px; background:linear-gradient(135deg,#1e50a0,#2a6db8); color:#fff; font-size:15px; font-weight:600; cursor:pointer; transition:all .2s ease; font-family:"Noto Sans JP",sans-serif; margin-top:10px; box-shadow:0 4px 16px rgba(30,80,160,.25); }
-        .btn-secondary:active { transform:scale(.98); }
-        .team-screen { width:100%; max-width:420px; animation:fadeInUp .5s ease; padding-top:20px; padding-bottom:40px; }
-        .team-header { text-align:center; margin-bottom:20px; }
-        .team-header h2 { font-size:20px; font-weight:700; color:${currentTheme.text}; }
-        .team-header p { font-size:11px; color:${currentTheme.textTertiary}; margin-top:2px; letter-spacing:.08em; }
-        .team-meta { display:flex; gap:12px; margin-bottom:20px; }
-        .team-meta-card { flex:1; background:${currentTheme.cardBg}; border:1px solid ${currentTheme.cardBorder}; border-radius:12px; padding:12px 14px; text-align:center; }
-        .team-meta-label { font-size:10px; color:${currentTheme.textTertiary}; margin-bottom:4px; }
-        .team-meta-value { font-size:18px; font-weight:700; color:${currentTheme.text}; }
-        .team-meta-unit { font-size:10px; color:${currentTheme.textSecondary}; }
-        .team-section-title { font-size:13px; font-weight:600; color:${currentTheme.textSecondary}; margin-bottom:10px; letter-spacing:.04em; text-transform:uppercase; }
-        .team-avg-cards { display:flex; gap:10px; margin-bottom:20px; }
-        .team-avg-card { flex:1; background:${currentTheme.cardBg}; border:1px solid ${currentTheme.cardBorder}; border-radius:12px; padding:12px 10px; text-align:center; }
-        .team-avg-label { font-size:10px; color:${currentTheme.textTertiary}; margin-bottom:4px; line-height:1.4; }
-        .team-avg-value { font-size:22px; font-weight:700; color:${currentTheme.text}; }
-        .team-avg-unit { font-size:10px; color:${currentTheme.textSecondary}; }
-        .score-dist { background:${currentTheme.cardBg}; border:1px solid ${currentTheme.cardBorder}; border-radius:14px; padding:16px 18px; margin-bottom:20px; }
-        .score-dist-row { display:flex; align-items:center; gap:10px; margin-bottom:8px; }
-        .score-dist-row:last-child { margin-bottom:0; }
-        .score-dist-name { font-size:11px; color:${currentTheme.text}; width:56px; flex-shrink:0; font-weight:500; }
-        .score-dist-bar-bg { flex:1; height:8px; background:${isDark ? 'rgba(255,255,255,.06)' : 'rgba(0,0,0,.06)'}; border-radius:4px; overflow:hidden; }
-        .score-dist-bar { height:100%; border-radius:4px; transition:width .6s ease; }
-        .score-dist-count { font-size:11px; color:${currentTheme.textSecondary}; width:32px; text-align:right; flex-shrink:0; }
-        .team-comment-box { background:${currentTheme.cardBg}; border:1px solid ${currentTheme.cardBorder}; border-radius:14px; padding:16px 18px; margin-bottom:20px; }
-        .team-comment-title { font-size:12px; font-weight:600; color:${currentTheme.accent}; margin-bottom:8px; }
-        .team-comment-text { font-size:13px; color:${currentTheme.textSecondary}; line-height:1.7; }
-        .error-screen { text-align:center; max-width:360px; animation:fadeInUp .4s ease; }
-        .error-icon { width:56px; height:56px; border-radius:50%; background:rgba(220,80,60,.15); display:flex; align-items:center; justify-content:center; margin:0 auto 20px; }
-        .error-title { font-size:18px; font-weight:600; margin-bottom:12px; color:${currentTheme.text}; }
-        .error-message { font-size:13px; color:${currentTheme.textSecondary}; line-height:1.7; margin-bottom:28px; white-space:pre-line; }
-        .auto-resume-text { margin-top:16px; font-size:13px; color:${currentTheme.textSecondary}; }
-        @keyframes fadeInUp { from { opacity:0; transform:translateY(16px); } to { opacity:1; transform:translateY(0); } }
-        @keyframes pulse-border { 0%,100% { opacity:.5; } 50% { opacity:1; } }
-        @keyframes spin { to { transform:rotate(360deg); } }
-      `}</style>
+
 
       <div className="bg-gradient" />
 
@@ -876,7 +803,7 @@ export default function VitalSensingDemo() {
         </div>
       </header>
 
-      <main className="main-content">
+      <main className={`main-content${(step === "result" || step === "team") ? " scroll-top" : ""}`}>
         {step === "start" && (
           <div className="start-screen">
             <div className="start-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2" /></svg></div>
