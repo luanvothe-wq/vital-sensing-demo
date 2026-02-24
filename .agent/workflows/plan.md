@@ -146,6 +146,7 @@ Reply: "1A, 2B" or "all recommended"
    j t dep <child> <parent>                       # Set dependencies
    ```
 5. Update plan file with reference: `> 📋 Tasks: \`j t list -P plan/[name]\``
+6. **Sync tasks to git**: `j t sync`
 
 > 📖 Reference: `j t guide` for full usage
 > ℹ️ `j t ready` returns tasks sorted by priority (p1 = highest). `j t pick` picks the highest-priority ready task.

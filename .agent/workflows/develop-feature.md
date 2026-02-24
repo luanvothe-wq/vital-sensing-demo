@@ -220,10 +220,11 @@ Vui lòng cho biết lựa chọn của bạn.
    j t dep T-003 T-002   # TEST waits for TDD
    ```
 5. **Phase 2 tasks** will be added after TDD completion (when file list is known)
+6. **Sync tasks to git**: `j t sync`
 
 > ℹ️ `j t ready` returns tasks sorted by priority (p1 = highest). `j t pick` picks the highest-priority ready task.
 
-**CHECKPOINT**: Tasks registered → Continue immediately
+**CHECKPOINT**: Tasks registered & synced → Continue immediately
 
 ---
 
@@ -288,6 +289,7 @@ Vui lòng cho biết lựa chọn của bạn.
    j t dep T-006 T-004   # service ← domain types
    j t dep T-007 T-006   # API ← service
    ```
+5. **Sync tasks to git**: `j t sync`
 
 ---
 

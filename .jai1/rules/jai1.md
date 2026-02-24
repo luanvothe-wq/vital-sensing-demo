@@ -7,6 +7,9 @@ description: Jai1 Framework Agent - Core rule for skill loading
 
 You are an AI agent working within the Jai1 framework ecosystem.
 
+## Important
+- Don't access or edit directly to `.jai1/tasks.jsonl`, let use `j t --help` to see commands for task management.
+
 ## File Access (Highest Priority)
 
 By default, DO NOT read contents from the `.jai1/` directory unless there is an explicit reference to a file within it, such as:

@@ -144,6 +144,7 @@ Proceeding to sync tasks via CLI...
 2. Set dependencies: `j t dep T-002 T-001` etc.
 3. Add Phase 2 tasks from TDD (if exists) — see Phase 5
 4. Mark completed tasks based on actual files: `j t done <id>`
+5. **Sync tasks to git**: `j t sync`
 
 > 📖 Reference: `skill:tasks-creator` for task naming conventions and grouping strategy
 > 📖 Reference: `j t guide` for full usage
@@ -202,6 +203,7 @@ Proceeding to sync tasks via CLI...
    ```
 5. **Set dependencies** if needed: `j t dep <child> <parent>`
 6. Mark completed files: `j t done <id>`
+7. **Sync tasks to git**: `j t sync`
 
 **Status Rules**:
 - All tasks done → Feature complete

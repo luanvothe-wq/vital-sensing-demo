@@ -89,6 +89,7 @@ Use this workflow AFTER an IDE built-in plan mode finishes. It extracts context 
    ```bash
    j t dep <child> <parent>
    ```
+4. **Sync tasks to git**: `j t sync`
 
 **Task State Sync Rules**:
 - File does not exist → keep as `todo`

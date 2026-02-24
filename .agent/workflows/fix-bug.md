@@ -16,6 +16,17 @@ trigger: always_on
 5. ✅ **Report changes** - Always report what has been changed
 6. ✅ **Vietnamese** - Output in Vietnamese
 7. ✅ **Track task** - Register bug via `jai1 t add "[BUG] ..." -p 1 -P bug/[name]`, mark done when fixed
+8. ✅ **Sync tasks** - Run `j t sync` after registering or completing bug tasks to sync to git
+
+## 🔌 Conditional Skills (Only when needed)
+
+> Không bắt buộc load skill cho mọi bug. Chỉ dùng khi tín hiệu phù hợp.
+
+| Tình huống | Skill | Hành động |
+|-----------|-------|-----------|
+| Bug mơ hồ, nhiều khả năng root cause, flaky/intermittent | `skill:systematic-debugging` | Dùng quy trình debug có giả thuyết, thí nghiệm, loại trừ có hệ thống |
+| Cần profiling/instrumentation hoặc lỗi cross-layer phức tạp | `skill:debugging-strategies` | Dùng chiến lược trace/profile/deep diagnostics |
+| Stack trace rõ ràng + nguyên nhân đơn nhất | _Không cần skill bổ sung_ | Fix trực tiếp theo workflow hiện tại |
 
 ---
 
@@ -77,6 +88,11 @@ trigger: always_on
 ### Step 2: Root Cause Analysis
 
 **ACTIONS**:
+
+0. **Chọn chế độ phân tích (conditional)**:
+   - Nếu bug thuộc nhóm mơ hồ/flaky/multiple-cause → load `skill:systematic-debugging`
+   - Nếu cần profiling/instrumentation sâu → load `skill:debugging-strategies`
+   - Nếu bug rõ ràng (single-cause) → bỏ qua skill và phân tích trực tiếp
 
 #### For Backend (Laravel, NestJS, Express, etc.)
 1. **Trace flow**: Route → Middleware → Controller → Service → Model → DB
@@ -316,3 +332,4 @@ Confirm to update documentation? (Y/N)
 - [ ] Rollback plan provided (for high-risk fixes)
 - [ ] Prevention recommendations given
 - [ ] Bug task marked done: `jai1 t done <id>`
+- [ ] Tasks synced to git: `j t sync`

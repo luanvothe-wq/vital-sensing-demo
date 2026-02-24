@@ -3,49 +3,49 @@
     "filepath": "workflows/commit-it.md",
     "version": "1.0.0",
     "checksum": "c96dd2a9ea16a26a",
-    "installedAt": "2026-02-20T09:08:19.306Z",
+    "installedAt": "2026-02-24T19:42:25.393Z",
     "modified": false
   },
   "workflows/develop-feature.md": {
     "filepath": "workflows/develop-feature.md",
     "version": "1.0.0",
-    "checksum": "719a104886c7bb56",
-    "installedAt": "2026-02-20T09:08:19.611Z",
+    "checksum": "a63e0dfaad237473",
+    "installedAt": "2026-02-24T19:42:25.569Z",
     "modified": false
   },
   "rules/jai1.md": {
     "filepath": "rules/jai1.md",
     "version": "1.0.0",
-    "checksum": "f261ebccf2b6ad96",
-    "installedAt": "2026-02-20T09:08:19.885Z",
+    "checksum": "602d00770b0f9ce7",
+    "installedAt": "2026-02-24T19:42:25.737Z",
     "modified": false
   },
   "skills/gen-commit-message": {
     "filepath": "skills/gen-commit-message",
     "version": "1.0.0",
     "checksum": "63012f7d63c80f26",
-    "installedAt": "2026-02-20T09:08:20.149Z",
+    "installedAt": "2026-02-24T19:42:25.913Z",
     "modified": false
   },
   "skills/latest-version": {
     "filepath": "skills/latest-version",
     "version": "1.0.0",
     "checksum": "ed21aea88768e966",
-    "installedAt": "2026-02-20T09:08:20.423Z",
+    "installedAt": "2026-02-24T19:42:26.085Z",
     "modified": false
   },
   "workflows/develop-feature-from-conversation.md": {
     "filepath": "workflows/develop-feature-from-conversation.md",
     "version": "1.0.0",
-    "checksum": "5b327f697ab2dd7a",
-    "installedAt": "2026-02-20T09:08:20.702Z",
+    "checksum": "79cfa527f9766324",
+    "installedAt": "2026-02-24T19:42:26.254Z",
     "modified": false
   },
   "workflows/fix-bug.md": {
     "filepath": "workflows/fix-bug.md",
     "version": "1.0.0",
-    "checksum": "dc43149410202858",
-    "installedAt": "2026-02-20T09:08:21.003Z",
+    "checksum": "41ecd26185d803c3",
+    "installedAt": "2026-02-24T19:42:26.463Z",
     "modified": false
   },
   "workflows/gen-all-features-doc.md": {
@@ -72,36 +72,36 @@
   "workflows/plan-from-conversation.md": {
     "filepath": "workflows/plan-from-conversation.md",
     "version": "1.0.0",
-    "checksum": "49b10d143088933b",
-    "installedAt": "2026-02-20T09:08:22.174Z",
+    "checksum": "a4204165be5ea657",
+    "installedAt": "2026-02-24T19:42:26.631Z",
     "modified": false
   },
   "workflows/plan.md": {
     "filepath": "workflows/plan.md",
     "version": "1.0.0",
-    "checksum": "708c52847e64670d",
-    "installedAt": "2026-02-20T09:08:22.481Z",
+    "checksum": "49722b7075c1b148",
+    "installedAt": "2026-02-24T19:42:26.813Z",
     "modified": false
   },
   "context/jv-it-context.md": {
     "filepath": "context/jv-it-context.md",
     "version": "1.0.0",
     "checksum": "1e906e2ab110bb42",
-    "installedAt": "2026-02-20T09:08:22.778Z",
+    "installedAt": "2026-02-24T19:42:27.346Z",
     "modified": false
   },
   "workflows/analyze-impact.md": {
     "filepath": "workflows/analyze-impact.md",
     "version": "1.0.0",
     "checksum": "7b3d28e67f629861",
-    "installedAt": "2026-02-20T09:08:23.060Z",
+    "installedAt": "2026-02-24T19:42:27.519Z",
     "modified": false
   },
   "workflows/feedback.md": {
     "filepath": "workflows/feedback.md",
     "version": "1.0.0",
     "checksum": "46a257eaf90c97cb",
-    "installedAt": "2026-02-20T09:08:23.344Z",
+    "installedAt": "2026-02-24T19:42:27.689Z",
     "modified": false
   },
   "workflows/generate-rules-preset.md": {
@@ -115,56 +115,56 @@
     "filepath": "workflows/improve.md",
     "version": "1.0.0",
     "checksum": "2103f7bbb6df7233",
-    "installedAt": "2026-02-20T09:08:23.962Z",
+    "installedAt": "2026-02-24T19:42:27.861Z",
     "modified": false
   },
   "workflows/context.md": {
     "filepath": "workflows/context.md",
     "version": "1.0.0",
     "checksum": "1616aa634cbdc7f2",
-    "installedAt": "2026-02-20T09:08:24.254Z",
+    "installedAt": "2026-02-24T19:42:28.043Z",
     "modified": false
   },
   "workflows/pick-next-task.md": {
     "filepath": "workflows/pick-next-task.md",
     "version": "1.0.0",
     "checksum": "1ac348750d356146",
-    "installedAt": "2026-02-20T09:08:24.559Z",
+    "installedAt": "2026-02-24T19:42:28.220Z",
     "modified": false
   },
   "workflows/review-tasks.md": {
     "filepath": "workflows/review-tasks.md",
     "version": "1.0.0",
     "checksum": "846cbbd1be342b98",
-    "installedAt": "2026-02-20T09:08:24.834Z",
+    "installedAt": "2026-02-24T19:42:28.387Z",
     "modified": false
   },
   "skills/tasks-creator": {
     "filepath": "skills/tasks-creator",
     "version": "1.0.0",
     "checksum": "365e3088a459cd8c",
-    "installedAt": "2026-02-20T09:08:25.122Z",
+    "installedAt": "2026-02-24T19:42:28.744Z",
     "modified": false
   },
   "templates/feature-docs/FRD-backend.template.md": {
     "filepath": "templates/feature-docs/FRD-backend.template.md",
     "version": "1.0.0",
     "checksum": "e8975e83998b2ab2",
-    "installedAt": "2026-02-20T09:08:25.414Z",
+    "installedAt": "2026-02-24T19:42:28.911Z",
     "modified": false
   },
   "templates/feature-docs/TDD-backend.template.md": {
     "filepath": "templates/feature-docs/TDD-backend.template.md",
     "version": "1.0.0",
     "checksum": "b469015be5f92c26",
-    "installedAt": "2026-02-20T09:08:25.695Z",
+    "installedAt": "2026-02-24T19:42:29.078Z",
     "modified": false
   },
   "templates/feature-docs/TEST-feature.template.md": {
     "filepath": "templates/feature-docs/TEST-feature.template.md",
     "version": "1.0.0",
     "checksum": "49e0fa496de4053f",
-    "installedAt": "2026-02-20T09:08:25.968Z",
+    "installedAt": "2026-02-24T19:42:29.253Z",
     "modified": false
   },
   "templates/feature-docs/FRD-frontend.template.md": {
@@ -199,7 +199,7 @@
     "filepath": "skills/impact-analyzer",
     "version": "1.0.0",
     "checksum": "00e4f6b1ace3f3e8",
-    "installedAt": "2026-02-20T09:08:27.339Z",
+    "installedAt": "2026-02-24T19:42:30.860Z",
     "modified": false
   },
   "skills/rule-preset-creator": {
@@ -214,6 +214,83 @@
     "version": "1.0.0",
     "checksum": "c00540f0f7a5fe5e",
     "installedAt": "2026-02-20T09:08:27.878Z",
+    "modified": false
+  },
+  "workflows/review-branch.md": {
+    "filepath": "workflows/review-branch.md",
+    "version": "1.0.0",
+    "checksum": "fcf0adcce8422810",
+    "installedAt": "2026-02-24T19:42:26.993Z",
+    "modified": false
+  },
+  "workflows/review-local-changes.md": {
+    "filepath": "workflows/review-local-changes.md",
+    "version": "1.0.0",
+    "checksum": "af16e3f3775dbfe1",
+    "installedAt": "2026-02-24T19:42:27.177Z",
+    "modified": false
+  },
+  "workflows/run-group.md": {
+    "filepath": "workflows/run-group.md",
+    "version": "1.0.0",
+    "checksum": "1d68a995268728d2",
+    "installedAt": "2026-02-24T19:42:28.561Z",
+    "modified": false
+  },
+  "skills/systematic-debugging": {
+    "filepath": "skills/systematic-debugging",
+    "version": "1.0.0",
+    "checksum": "fbf18d914a1c1a06",
+    "installedAt": "2026-02-24T19:42:29.430Z",
+    "modified": false
+  },
+  "skills/debugging-strategies": {
+    "filepath": "skills/debugging-strategies",
+    "version": "1.0.0",
+    "checksum": "fd4d4466d50bbdce",
+    "installedAt": "2026-02-24T19:42:29.640Z",
+    "modified": false
+  },
+  "skills/security-auditor": {
+    "filepath": "skills/security-auditor",
+    "version": "1.0.0",
+    "checksum": "f78cb8eafbcad092",
+    "installedAt": "2026-02-24T19:42:29.824Z",
+    "modified": false
+  },
+  "skills/bug-hunter": {
+    "filepath": "skills/bug-hunter",
+    "version": "1.0.0",
+    "checksum": "9f2d104c9ec46894",
+    "installedAt": "2026-02-24T19:42:29.997Z",
+    "modified": false
+  },
+  "skills/code-quality-reviewer": {
+    "filepath": "skills/code-quality-reviewer",
+    "version": "1.0.0",
+    "checksum": "a60fedc1ba767f97",
+    "installedAt": "2026-02-24T19:42:30.174Z",
+    "modified": false
+  },
+  "skills/contracts-reviewer": {
+    "filepath": "skills/contracts-reviewer",
+    "version": "1.0.0",
+    "checksum": "ce1bfaf1f02908bf",
+    "installedAt": "2026-02-24T19:42:30.355Z",
+    "modified": false
+  },
+  "skills/test-coverage-reviewer": {
+    "filepath": "skills/test-coverage-reviewer",
+    "version": "1.0.0",
+    "checksum": "9de39d98a003eacb",
+    "installedAt": "2026-02-24T19:42:30.523Z",
+    "modified": false
+  },
+  "skills/historical-context-reviewer": {
+    "filepath": "skills/historical-context-reviewer",
+    "version": "1.0.0",
+    "checksum": "87b0126837ba6fb0",
+    "installedAt": "2026-02-24T19:42:30.696Z",
     "modified": false
   }
 }
