@@ -40,6 +40,10 @@ bun dev
 
 - Thông báo `✅ Configured profile maker-basic` là xong.
 
+```markdown
+Mỗi profile chỉ cần chạy 1 lần, nên nếu lần sau dùng profile này cho project khác thì không cần chạy lại
+```
+
 ### 2. Deploy lên môi trường demo
 - Chạy lệnh `npm run deploy`, và đợi...
 
