@@ -1,0 +1,26 @@
+{
+  "slug": "nextjs-vital-sensing-demo",
+  "name": "Vital Sensing Demo Rules",
+  "description": "Rules for Next.js 16 frontend project with camera-based vital sensing, FFmpeg WASM processing, and Firebase reporting",
+  "version": "1.0.0",
+  "tags": ["frontend", "ssr"],
+  "stack": {
+    "frontend": "Next.js 16.1.6 + React 19.2.3",
+    "backend": null,
+    "mobile": null,
+    "desktop": null,
+    "css": "Tailwind CSS v4 + custom global CSS",
+    "database": "Firebase Firestore",
+    "language": "TypeScript 5",
+    "runtime": "Node.js + Browser Web APIs"
+  },
+  "files": {
+    "required": ["01-project.md", "02-standards.md"],
+    "optional": ["03-frontend.md"],
+    "template": ["09-custom.md"]
+  },
+  "output": {
+    "agentsMd": true,
+    "ideFolder": ".cursor/rules"
+  }
+}

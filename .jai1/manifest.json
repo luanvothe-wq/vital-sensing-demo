@@ -1,0 +1,219 @@
+{
+  "workflows/commit-it.md": {
+    "filepath": "workflows/commit-it.md",
+    "version": "1.0.0",
+    "checksum": "c96dd2a9ea16a26a",
+    "installedAt": "2026-02-20T09:08:19.306Z",
+    "modified": false
+  },
+  "workflows/develop-feature.md": {
+    "filepath": "workflows/develop-feature.md",
+    "version": "1.0.0",
+    "checksum": "719a104886c7bb56",
+    "installedAt": "2026-02-20T09:08:19.611Z",
+    "modified": false
+  },
+  "rules/jai1.md": {
+    "filepath": "rules/jai1.md",
+    "version": "1.0.0",
+    "checksum": "f261ebccf2b6ad96",
+    "installedAt": "2026-02-20T09:08:19.885Z",
+    "modified": false
+  },
+  "skills/gen-commit-message": {
+    "filepath": "skills/gen-commit-message",
+    "version": "1.0.0",
+    "checksum": "63012f7d63c80f26",
+    "installedAt": "2026-02-20T09:08:20.149Z",
+    "modified": false
+  },
+  "skills/latest-version": {
+    "filepath": "skills/latest-version",
+    "version": "1.0.0",
+    "checksum": "ed21aea88768e966",
+    "installedAt": "2026-02-20T09:08:20.423Z",
+    "modified": false
+  },
+  "workflows/develop-feature-from-conversation.md": {
+    "filepath": "workflows/develop-feature-from-conversation.md",
+    "version": "1.0.0",
+    "checksum": "5b327f697ab2dd7a",
+    "installedAt": "2026-02-20T09:08:20.702Z",
+    "modified": false
+  },
+  "workflows/fix-bug.md": {
+    "filepath": "workflows/fix-bug.md",
+    "version": "1.0.0",
+    "checksum": "dc43149410202858",
+    "installedAt": "2026-02-20T09:08:21.003Z",
+    "modified": false
+  },
+  "workflows/gen-all-features-doc.md": {
+    "filepath": "workflows/gen-all-features-doc.md",
+    "version": "1.0.0",
+    "checksum": "55b74cf1f160791f",
+    "installedAt": "2026-02-20T09:08:21.292Z",
+    "modified": false
+  },
+  "workflows/gen-feature-doc.md": {
+    "filepath": "workflows/gen-feature-doc.md",
+    "version": "1.0.0",
+    "checksum": "ea3d044d7ea46ee8",
+    "installedAt": "2026-02-20T09:08:21.590Z",
+    "modified": false
+  },
+  "workflows/gen-project-overview.md": {
+    "filepath": "workflows/gen-project-overview.md",
+    "version": "1.0.0",
+    "checksum": "d984954f0438a22f",
+    "installedAt": "2026-02-20T09:08:21.894Z",
+    "modified": false
+  },
+  "workflows/plan-from-conversation.md": {
+    "filepath": "workflows/plan-from-conversation.md",
+    "version": "1.0.0",
+    "checksum": "49b10d143088933b",
+    "installedAt": "2026-02-20T09:08:22.174Z",
+    "modified": false
+  },
+  "workflows/plan.md": {
+    "filepath": "workflows/plan.md",
+    "version": "1.0.0",
+    "checksum": "708c52847e64670d",
+    "installedAt": "2026-02-20T09:08:22.481Z",
+    "modified": false
+  },
+  "context/jv-it-context.md": {
+    "filepath": "context/jv-it-context.md",
+    "version": "1.0.0",
+    "checksum": "1e906e2ab110bb42",
+    "installedAt": "2026-02-20T09:08:22.778Z",
+    "modified": false
+  },
+  "workflows/analyze-impact.md": {
+    "filepath": "workflows/analyze-impact.md",
+    "version": "1.0.0",
+    "checksum": "7b3d28e67f629861",
+    "installedAt": "2026-02-20T09:08:23.060Z",
+    "modified": false
+  },
+  "workflows/feedback.md": {
+    "filepath": "workflows/feedback.md",
+    "version": "1.0.0",
+    "checksum": "46a257eaf90c97cb",
+    "installedAt": "2026-02-20T09:08:23.344Z",
+    "modified": false
+  },
+  "workflows/generate-rules-preset.md": {
+    "filepath": "workflows/generate-rules-preset.md",
+    "version": "1.0.0",
+    "checksum": "287502d6d29ec2a8",
+    "installedAt": "2026-02-20T09:08:23.657Z",
+    "modified": false
+  },
+  "workflows/improve.md": {
+    "filepath": "workflows/improve.md",
+    "version": "1.0.0",
+    "checksum": "2103f7bbb6df7233",
+    "installedAt": "2026-02-20T09:08:23.962Z",
+    "modified": false
+  },
+  "workflows/context.md": {
+    "filepath": "workflows/context.md",
+    "version": "1.0.0",
+    "checksum": "1616aa634cbdc7f2",
+    "installedAt": "2026-02-20T09:08:24.254Z",
+    "modified": false
+  },
+  "workflows/pick-next-task.md": {
+    "filepath": "workflows/pick-next-task.md",
+    "version": "1.0.0",
+    "checksum": "1ac348750d356146",
+    "installedAt": "2026-02-20T09:08:24.559Z",
+    "modified": false
+  },
+  "workflows/review-tasks.md": {
+    "filepath": "workflows/review-tasks.md",
+    "version": "1.0.0",
+    "checksum": "846cbbd1be342b98",
+    "installedAt": "2026-02-20T09:08:24.834Z",
+    "modified": false
+  },
+  "skills/tasks-creator": {
+    "filepath": "skills/tasks-creator",
+    "version": "1.0.0",
+    "checksum": "365e3088a459cd8c",
+    "installedAt": "2026-02-20T09:08:25.122Z",
+    "modified": false
+  },
+  "templates/feature-docs/FRD-backend.template.md": {
+    "filepath": "templates/feature-docs/FRD-backend.template.md",
+    "version": "1.0.0",
+    "checksum": "e8975e83998b2ab2",
+    "installedAt": "2026-02-20T09:08:25.414Z",
+    "modified": false
+  },
+  "templates/feature-docs/TDD-backend.template.md": {
+    "filepath": "templates/feature-docs/TDD-backend.template.md",
+    "version": "1.0.0",
+    "checksum": "b469015be5f92c26",
+    "installedAt": "2026-02-20T09:08:25.695Z",
+    "modified": false
+  },
+  "templates/feature-docs/TEST-feature.template.md": {
+    "filepath": "templates/feature-docs/TEST-feature.template.md",
+    "version": "1.0.0",
+    "checksum": "49e0fa496de4053f",
+    "installedAt": "2026-02-20T09:08:25.968Z",
+    "modified": false
+  },
+  "templates/feature-docs/FRD-frontend.template.md": {
+    "filepath": "templates/feature-docs/FRD-frontend.template.md",
+    "version": "1.0.0",
+    "checksum": "cbda6e2633d0b119",
+    "installedAt": "2026-02-20T09:08:26.238Z",
+    "modified": false
+  },
+  "templates/feature-docs/FRD-fullstack.template.md": {
+    "filepath": "templates/feature-docs/FRD-fullstack.template.md",
+    "version": "1.0.0",
+    "checksum": "bfba6c36ea8a2d68",
+    "installedAt": "2026-02-20T09:08:26.501Z",
+    "modified": false
+  },
+  "templates/feature-docs/TDD-frontend.template.md": {
+    "filepath": "templates/feature-docs/TDD-frontend.template.md",
+    "version": "1.0.0",
+    "checksum": "9860cdf8233802f8",
+    "installedAt": "2026-02-20T09:08:26.760Z",
+    "modified": false
+  },
+  "templates/feature-docs/TDD-fullstack.template.md": {
+    "filepath": "templates/feature-docs/TDD-fullstack.template.md",
+    "version": "1.0.0",
+    "checksum": "4345f455fbb47977",
+    "installedAt": "2026-02-20T09:08:27.050Z",
+    "modified": false
+  },
+  "skills/impact-analyzer": {
+    "filepath": "skills/impact-analyzer",
+    "version": "1.0.0",
+    "checksum": "00e4f6b1ace3f3e8",
+    "installedAt": "2026-02-20T09:08:27.339Z",
+    "modified": false
+  },
+  "skills/rule-preset-creator": {
+    "filepath": "skills/rule-preset-creator",
+    "version": "1.0.0",
+    "checksum": "d580566a34f80383",
+    "installedAt": "2026-02-20T09:08:27.608Z",
+    "modified": false
+  },
+  "skills/rule-preset-from-survey": {
+    "filepath": "skills/rule-preset-from-survey",
+    "version": "1.0.0",
+    "checksum": "c00540f0f7a5fe5e",
+    "installedAt": "2026-02-20T09:08:27.878Z",
+    "modified": false
+  }
+}

@@ -339,7 +339,7 @@ export default function VitalSensingDemo() {
     const mp4Arr = mp4Data as Uint8Array;
     console.log("=== MP4変換完了:", mp4Arr.length, "bytes ===");
     // Blob コンストラクタの型チェックを回避
-    // @ts-ignore
+    // @ts-expect-error Blob expects different arguments in older ts lib
     return new Blob([mp4Arr.buffer], { type: "video/mp4" });
   };
 
@@ -1049,14 +1049,14 @@ export default function VitalSensingDemo() {
           }
           const distRows = [
             { key: "excellent", label: t.statusExcellent, color: "#22d3ee" },
-            { key: "good",      label: t.statusGood,      color: "#4ade80" },
-            { key: "fair",      label: t.statusFair,      color: "#a3e635" },
-            { key: "caution",   label: t.statusCaution,   color: "#fbbf24" },
-            { key: "check",     label: t.statusCheck,     color: "#f87171" },
+            { key: "good", label: t.statusGood, color: "#4ade80" },
+            { key: "fair", label: t.statusFair, color: "#a3e635" },
+            { key: "caution", label: t.statusCaution, color: "#fbbf24" },
+            { key: "check", label: t.statusCheck, color: "#f87171" },
           ];
           const avgItems = [
-            { label: t.avgHeartRate, sub: "Heart Rate",   desc: t.avgBpmDesc, val: avgBpm, unit: "bpm" },
-            { label: t.avgSystolic,  sub: "Systolic BP",  desc: t.avgSysDesc, val: avgSys, unit: "mmHg" },
+            { label: t.avgHeartRate, sub: "Heart Rate", desc: t.avgBpmDesc, val: avgBpm, unit: "bpm" },
+            { label: t.avgSystolic, sub: "Systolic BP", desc: t.avgSysDesc, val: avgSys, unit: "mmHg" },
             { label: t.avgDiastolic, sub: "Diastolic BP", desc: t.avgDiaDesc, val: avgDia, unit: "mmHg" },
           ];
           return (
