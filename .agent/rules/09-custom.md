@@ -4,40 +4,39 @@ trigger: always_on
 
 # Project Customizations
 
-File nay de team bo sung quy tac rieng theo van hanh noi bo.
-No khong nen bi overwrite khi regenerate preset.
+This file is for team-specific rules that won't be overwritten by preset updates.
 
 ## Team Conventions
 
-- [ ] Dinh nghia quy uoc review code (so nguoi review, SLA, muc do bat buoc).
-- [ ] Dinh nghia quy uoc branch/commit message chi tiet hon neu can.
-- [ ] Dinh nghia checklist release demo/prod theo quy trinh noi bo.
+<!-- Define code review rules (reviewers, SLA, enforcement level) -->
+<!-- Define branch/commit message conventions if more specific than standard -->
+<!-- Define release checklist for demo/prod per internal process -->
 
 ## Product-Specific Rules
 
-- [ ] Nguong danh gia vital score (excellent/good/fair/caution/check) co can dieu chinh?
-- [ ] Quy tac hien thi thong diep canh bao y te theo phap ly noi bo.
-- [ ] Danh sach locale bat buoc ngoai `ja` va `en`.
+<!-- Vital score thresholds (excellent/good/fair/caution/check) — need adjustment? -->
+<!-- Medical warning message display rules per local regulations -->
+<!-- Required locales beyond `ja` and `en` -->
 
 ## External Integration Notes
 
-- [ ] Chinh sach rotate credentials cho external vital API.
-- [ ] Chinh sach fallback khi Firestore khong kha dung.
-- [ ] Danh sach environment variables bat buoc theo tung moi truong.
+<!-- Credential rotation policy for external vital API -->
+<!-- Fallback policy when D1 is unavailable -->
+<!-- Required environment variables per environment (local/demo/prod) -->
 
-## Performance and Observability
+## Performance & Observability
 
-- [ ] KPI can theo doi: thoi gian start camera, thoi gian analyze, ty le fail API.
-- [ ] Quy tac log level cho dev/staging/prod.
-- [ ] Neu can, them telemetry events cho moi state transition quan trong.
+<!-- KPIs to track: camera start time, analysis time, API failure rate -->
+<!-- Log level rules for dev/staging/prod -->
+<!-- Telemetry events for important state transitions -->
 
-## Security and Compliance
+## Security & Compliance
 
-- [ ] Quy tac xu ly du lieu video tam thoi (retention, xoa du lieu).
-- [ ] Quy tac mask/anonymize thong tin nhay cam trong logs.
-- [ ] Danh sach doi tuong duoc phep truy cap dashboard/bao cao team.
+<!-- Temporary video data handling rules (retention, deletion) -->
+<!-- Sensitive data masking/anonymization rules in logs -->
+<!-- Access control for team dashboard/reports -->
 
 ## Notes
 
-- Giu noi dung gon, huong dan hanh dong ro, tranh viet thanh tai lieu huong dan dai dong.
-- Moi thay doi lon trong file nay nen duoc review boi owner ky thuat + product.
+- Keep content concise, action-oriented, avoid writing long documentation
+- Major changes to this file should be reviewed by tech owner + product owner

@@ -1,5 +1,5 @@
 ---
-trigger: always_on
+description: Vital Sensing Demo coding standards and conventions
 ---
 
 # Coding Standards

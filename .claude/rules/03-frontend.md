@@ -1,5 +1,5 @@
 ---
-trigger: always_on
+description: Vital Sensing Demo frontend development rules
 ---
 
 # Frontend Guidelines

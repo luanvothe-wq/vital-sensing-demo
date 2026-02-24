@@ -1,5 +1,4 @@
 ---
-trigger: always_on
 description: Vital Sensing Demo project overview and architecture
 ---
 

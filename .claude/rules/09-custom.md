@@ -1,5 +1,4 @@
 ---
-trigger: always_on
 description: Project-specific customizations (not overwritten on regeneration)
 ---
 

@@ -6,10 +6,10 @@ trigger: always_on
 
 ## Architecture
 
-- **Pattern**: Frontend-first app voi Next.js App Router, co route API noi bo de proxy den dich vu phan tich vital.
-- **Rendering**: UI chinh dung Client Component (`app/page.tsx`) vi phu thuoc camera, media stream, face detection va WebAssembly.
-- **Data flow**: Camera/WebM -> convert MP4 tren browser -> `POST /api/vital-sensing` -> external API -> hien thi ket qua + luu Firestore.
-- **Fallback strategy**: Neu API hoac Firebase loi, app van tiep tuc bang mock data/session cache de giu trai nghiem demo.
+- **Pattern**: Frontend-first Next.js App Router with internal API route proxying to external vital sensing service
+- **Rendering**: Client Component for main UI (camera, media stream, face detection, WebAssembly); Server for API routes
+- **Data flow**: Camera → WebM recording → (optional MP4 convert) → `POST /api/vital-sensing` → external API → display results + save D1
+- **Deployment**: Cloudflare Workers via OpenNext adapter + Alchemy IaC
 
 ## Tech Stack
 
@@ -19,69 +19,65 @@ trigger: always_on
 | UI | React 19.2.3 |
 | Language | TypeScript 5 (strict mode) |
 | Styling | Tailwind CSS v4 + global CSS + runtime theme palette |
-| API Route | Next.js Route Handler (`app/api/*`) |
-| Face Detection | `face-api.js` (TinyFaceDetector, model local trong `public/models`) |
-| Video Processing | `@ffmpeg/ffmpeg` WASM |
-| Persistence | Firebase Firestore |
-| Runtime | Node.js (route handler), Browser APIs (MediaRecorder/getUserMedia) |
+| Database | Cloudflare D1 (SQLite) |
+| Face Detection | face-api.js (TinyFaceDetector, local models) |
+| Video Processing | @ffmpeg/ffmpeg (WASM, currently disabled) |
+| API Integration | Online Doctor Vital Sensing API (proxied) |
+| Deployment | Cloudflare Workers + Alchemy IaC |
+| Runtime | Node.js (route handlers), Browser APIs (MediaRecorder) |
 
 ## Project Structure
 
-```text
+```
 app/
   api/
-    vital-sensing/
-      route.ts            # Proxy + auth + submit file den external API
-  globals.css             # Global styles + Tailwind import
-  layout.tsx              # Root layout, metadata, font setup
-  page.tsx                # Main client flow (camera -> record -> analyze -> result)
-  theme-palettes.ts       # Theme palette config
+    vital-sensing/route.ts   # Proxy auth + submit video to external API
+    reports/route.ts          # Team reports CRUD (D1)
+  globals.css                 # Global styles + Tailwind import
+  layout.tsx                  # Root layout, metadata, fonts
+  page.tsx                    # Main client flow (camera → record → analyze → result)
+  theme-palettes.ts           # Theme palette definitions
 lib/
-  firebase.ts             # Firebase app + Firestore init
-  reportService.ts        # Save/get team reports
+  online-doctor.ts            # External API wrapper (auth + vital analysis)
+  reportService.ts            # D1 report persistence (save/get)
+  d1.ts                       # D1 database helper
+migrations/                   # D1 SQL migrations
 public/
-  models/                 # face-api model files
-  ffmpeg/                 # ffmpeg core files
+  models/                     # face-api model files
+alchemy.run.ts                # Alchemy IaC deployment config
 ```
-
-## Runtime Environments
-
-| Scope | Variables |
-|------|-----------|
-| API proxy auth | `API_BASE_URL`, `LOGIN_EMAIL`, `LOGIN_PASSWORD`, `BASIC_AUTH_ID`, `BASIC_AUTH_PW` |
-| Firebase client | `NEXT_PUBLIC_FIREBASE_API_KEY`, `NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN`, `NEXT_PUBLIC_FIREBASE_PROJECT_ID`, `NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET`, `NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID`, `NEXT_PUBLIC_FIREBASE_APP_ID` |
 
 ## Development Commands
 
 ```bash
-npm run dev      # Chay local dev server
-npm run build    # Build production
-npm run start    # Run production build
-npm run lint     # Kiem tra lint theo Next + TypeScript rules
+npm install                  # Install dependencies
+npm run dev                  # Run local dev (migrate D1 + Alchemy dev)
+npm run build                # Production build
+npm run lint                 # ESLint check
+npm run deploy               # Deploy to Cloudflare (demo stage)
+npm run destroy              # Tear down Cloudflare resources
+npm run db:migrate:local     # Apply D1 migrations locally
 ```
 
 ## API Contract (Internal)
 
-### Endpoint
+### POST /api/vital-sensing
 
-- `POST /api/vital-sensing`
-- Request: `multipart/form-data` voi field `file` (video blob)
+- Request: `multipart/form-data` with field `file` (video blob)
 
-### Success shape
-
+#### Success
 ```json
 { "code": 200, "data": { "bpm": "75", "bpv1": "120", "bpv0": "75", "S2": "[97]", "LTv": "1.45" } }
 ```
 
-### Error shape
-
+#### Error
 ```json
-{ "error": true, "message": "..." }
+{ "error": true, "message": "バイタルサインの分析に失敗しました" }
 ```
 
-## Key Conventions For Agents
+## Runtime Environment
 
-- Ton trong luong UX demo: uu tien fallback an toan thay vi fail hard.
-- Khong bo qua route proxy; integration external service phai qua `app/api/vital-sensing/route.ts`.
-- Code moi cho UI nen tach theo component/feature thay vi tiep tuc tang kich thuoc `app/page.tsx`.
-- Khong commit secret/env values; chi dung placeholders va tai lieu bien moi truong.
+| Scope | Variables |
+|-------|-----------|
+| API proxy | `API_BASE_URL`, `LOGIN_EMAIL`, `LOGIN_PASSWORD` |
+| Alchemy | `ALCHEMY_PASSWORD` |

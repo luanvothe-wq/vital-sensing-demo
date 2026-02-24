@@ -4,10 +4,10 @@
 
 ### Architecture
 
-- **Pattern**: Frontend-first app voi Next.js App Router, co route API noi bo de proxy den dich vu phan tich vital.
-- **Rendering**: UI chinh dung Client Component (`app/page.tsx`) vi phu thuoc camera, media stream, face detection va WebAssembly.
-- **Data flow**: Camera/WebM -> convert MP4 tren browser -> `POST /api/vital-sensing` -> external API -> hien thi ket qua + luu Firestore.
-- **Fallback strategy**: Neu API hoac Firebase loi, app van tiep tuc bang mock data/session cache de giu trai nghiem demo.
+- **Pattern**: Frontend-first Next.js App Router with internal API route proxying to external vital sensing service
+- **Rendering**: Client Component for main UI (camera, media stream, face detection, WebAssembly); Server for API routes
+- **Data flow**: Camera → WebM recording → (optional MP4 convert) → `POST /api/vital-sensing` → external API → display results + save D1
+- **Deployment**: Cloudflare Workers via OpenNext adapter + Alchemy IaC
 
 ### Tech Stack
 
@@ -17,83 +17,79 @@
 | UI | React 19.2.3 |
 | Language | TypeScript 5 (strict mode) |
 | Styling | Tailwind CSS v4 + global CSS + runtime theme palette |
-| API Route | Next.js Route Handler (`app/api/*`) |
-| Face Detection | `face-api.js` (TinyFaceDetector, model local trong `public/models`) |
-| Video Processing | `@ffmpeg/ffmpeg` WASM |
-| Persistence | Firebase Firestore |
-| Runtime | Node.js (route handler), Browser APIs (MediaRecorder/getUserMedia) |
+| Database | Cloudflare D1 (SQLite) |
+| Face Detection | face-api.js (TinyFaceDetector, local models) |
+| Video Processing | @ffmpeg/ffmpeg (WASM, currently disabled) |
+| API Integration | Online Doctor Vital Sensing API (proxied) |
+| Deployment | Cloudflare Workers + Alchemy IaC |
+| Runtime | Node.js (route handlers), Browser APIs (MediaRecorder) |
 
 ### Project Structure
 
-```text
+```
 app/
   api/
-    vital-sensing/
-      route.ts            # Proxy + auth + submit file den external API
-  globals.css             # Global styles + Tailwind import
-  layout.tsx              # Root layout, metadata, font setup
-  page.tsx                # Main client flow (camera -> record -> analyze -> result)
-  theme-palettes.ts       # Theme palette config
+    vital-sensing/route.ts   # Proxy auth + submit video to external API
+    reports/route.ts          # Team reports CRUD (D1)
+  globals.css                 # Global styles + Tailwind import
+  layout.tsx                  # Root layout, metadata, fonts
+  page.tsx                    # Main client flow (camera → record → analyze → result)
+  theme-palettes.ts           # Theme palette definitions
 lib/
-  firebase.ts             # Firebase app + Firestore init
-  reportService.ts        # Save/get team reports
+  online-doctor.ts            # External API wrapper (auth + vital analysis)
+  reportService.ts            # D1 report persistence (save/get)
+  d1.ts                       # D1 database helper
+migrations/                   # D1 SQL migrations
 public/
-  models/                 # face-api model files
-  ffmpeg/                 # ffmpeg core files
+  models/                     # face-api model files
+alchemy.run.ts                # Alchemy IaC deployment config
 ```
-
-### Runtime Environments
-
-| Scope | Variables |
-|------|-----------|
-| API proxy auth | `API_BASE_URL`, `LOGIN_EMAIL`, `LOGIN_PASSWORD`, `BASIC_AUTH_ID`, `BASIC_AUTH_PW` |
-| Firebase client | `NEXT_PUBLIC_FIREBASE_API_KEY`, `NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN`, `NEXT_PUBLIC_FIREBASE_PROJECT_ID`, `NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET`, `NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID`, `NEXT_PUBLIC_FIREBASE_APP_ID` |
 
 ### Development Commands
 
 ```bash
-npm run dev      # Chay local dev server
-npm run build    # Build production
-npm run start    # Run production build
-npm run lint     # Kiem tra lint theo Next + TypeScript rules
+npm install                  # Install dependencies
+npm run dev                  # Run local dev (migrate D1 + Alchemy dev)
+npm run build                # Production build
+npm run lint                 # ESLint check
+npm run deploy               # Deploy to Cloudflare (demo stage)
+npm run destroy              # Tear down Cloudflare resources
+npm run db:migrate:local     # Apply D1 migrations locally
 ```
 
 ### API Contract (Internal)
 
-#### Endpoint
+#### POST /api/vital-sensing
 
-- `POST /api/vital-sensing`
-- Request: `multipart/form-data` voi field `file` (video blob)
+- Request: `multipart/form-data` with field `file` (video blob)
 
-#### Success shape
-
+##### Success
 ```json
 { "code": 200, "data": { "bpm": "75", "bpv1": "120", "bpv0": "75", "S2": "[97]", "LTv": "1.45" } }
 ```
 
-#### Error shape
-
+##### Error
 ```json
-{ "error": true, "message": "..." }
+{ "error": true, "message": "バイタルサインの分析に失敗しました" }
 ```
 
-### Key Conventions For Agents
+### Runtime Environment
 
-- Ton trong luong UX demo: uu tien fallback an toan thay vi fail hard.
-- Khong bo qua route proxy; integration external service phai qua `app/api/vital-sensing/route.ts`.
-- Code moi cho UI nen tach theo component/feature thay vi tiep tuc tang kich thuoc `app/page.tsx`.
-- Khong commit secret/env values; chi dung placeholders va tai lieu bien moi truong.
+| Scope | Variables |
+|-------|-----------|
+| API proxy | `API_BASE_URL`, `LOGIN_EMAIL`, `LOGIN_PASSWORD` |
+| Alchemy | `ALCHEMY_PASSWORD` |
 
 ## Coding Standards
 
-### Terms and Expected Actions
+### Terms & Definitions
 
 | Term | Action |
 |------|--------|
-| `fix bug` | Tai hien loi -> them/kiem tra guard -> verify lai luong chinh va fallback |
-| `refactor` | Cai thien cau truc ma khong doi hanh vi va payload API |
-| `optimize` | Do luong truoc, uu tien responsiveness camera/recording/analyzing |
-| `harden` | Tang kha nang chiu loi mang, timeout, permission, va external service |
+| `fix bug` | Reproduce → add guard → verify main flow + fallback |
+| `refactor` | Improve structure, no behavior or API payload change |
+| `optimize` | Measure first, prioritize camera/recording responsiveness |
+| `harden` | Improve resilience to network/timeout/permission/external service failures |
 
 ### Naming Conventions
 
@@ -101,163 +97,202 @@ npm run lint     # Kiem tra lint theo Next + TypeScript rules
 
 | Type | Convention | Example |
 |------|------------|---------|
-| App route/page | lower-case route folders | `app/api/vital-sensing/route.ts` |
-| React components | PascalCase cho component name, file theo route context | `page.tsx`, `layout.tsx` |
-| Shared libs | camelCase utility files | `reportService.ts`, `theme-palettes.ts` |
-| Config files | tool default naming | `next.config.ts`, `eslint.config.mjs` |
+| Route folders | lower-case kebab | `app/api/vital-sensing/` |
+| React pages | route context name | `page.tsx`, `layout.tsx` |
+| Shared libs | camelCase | `reportService.ts`, `online-doctor.ts` |
+| Config files | tool defaults | `next.config.ts`, `eslint.config.mjs` |
+| Migrations | numbered prefix | `0001_initial.sql` |
 
-#### Code Symbols
+#### Code
 
 | Type | Convention | Example |
 |------|------------|---------|
 | Variables/functions | camelCase | `startCamera`, `sendToApi` |
 | Types/interfaces | PascalCase | `VitalResult`, `TeamReport` |
-| Constants | UPPER_SNAKE for immutable config | `MOCK_PATTERNS` |
-| Union states | string literal unions | `type AppStep = "start" | ...` |
+| Constants | UPPER_SNAKE | `MOCK_PATTERNS`, `SHORT_ID_LENGTH` |
+| Union states | string literal union | `type AppStep = "start" \| "camera" \| ...` |
+| Theme palettes | PascalCase type + camelCase config | `ThemePalette`, `getThemeColors` |
 
 ### Architecture Layers
 
 | Layer | Responsibility |
 |-------|---------------|
-| UI Flow | Hien thi step, animation, message theo trang thai |
+| UI Flow | Display steps, animation, messages per state |
 | Device/Media | Camera stream, recording, countdown, face alignment |
-| Processing | WebM -> MP4, call internal API, handle timeout/fallback |
-| Data | Save/get reports qua `lib/reportService.ts` |
-| Integration | Proxy auth + forward video den external vital API |
+| Processing | Video conversion, call internal API, handle timeout/fallback |
+| Data | Save/get reports via `lib/reportService.ts` + D1 |
+| Integration | Proxy auth + forward video to external vital API |
 
-### Do
+### Do's
 
-- Validate input va state transitions cho tung buoc (`start` -> `camera` -> `recording` -> `analyzing` -> `result`).
-- Dat timeout ro rang cho network/process nang (API request, MP4 conversion, team report fetch).
-- Tach helper functions khi logic lap lai hoac component vuot nguong de maintain.
-- Dung TypeScript strict, tranh `any` tru khi bat kha khang va co ly do ro.
-- Giu thong diep loi huong nguoi dung than thien, co fallback thay vi crash.
-- Uu tien cleanup resources (`MediaStream`, interval, animation frame) khi unmount/reset.
-- Bao toan contract response JSON cua route API noi bo.
+- ✅ Validate state transitions for each step (`start` → `camera` → `recording` → `analyzing` → `result`)
+- ✅ Set explicit timeouts for network/heavy processing (API request, MP4 conversion, report fetch)
+- ✅ Extract helpers when logic repeats or component grows too large
+- ✅ Use TypeScript strict, avoid `any` unless absolutely necessary with clear reason
+- ✅ Keep error messages user-friendly with fallback instead of crash
+- ✅ Cleanup resources (`MediaStream`, intervals, animation frames) on unmount/reset
+- ✅ Preserve response JSON contract of internal API routes
+- ✅ Always proxy external API calls through `app/api/` routes
 
-### Do Not
+### Don'ts
 
-- Khong hardcode credentials, token, API key trong source.
-- Khong goi truc tiep external vital API tu client UI.
-- Khong bo qua path xu ly loi khi them integration moi.
-- Khong them side effects vao rendering path neu co the dua vao hooks/callbacks.
-- Khong block UI thread bang xu ly dong bo dai tren browser.
-- Khong sua doi shape `TeamReport` tuy y ma khong cap nhat dong bo noi dung lien quan.
+- ❌ Don't hardcode credentials, tokens, or API keys in source
+- ❌ Don't call external vital API directly from client UI
+- ❌ Don't skip error handling paths when adding new integrations
+- ❌ Don't add side effects to rendering path if hooks/callbacks can be used
+- ❌ Don't block UI thread with synchronous heavy processing on browser
+- ❌ Don't modify `TeamReport` shape without updating all dependent code
 
-### Security and Privacy Checklist
+### Security Checklist
 
-- [ ] Khong log thong tin nhay cam (email/password/token) ra console hoac response.
-- [ ] Kiem tra bien moi truong bat buoc truoc khi goi external service.
-- [ ] Gioi han endpoint API route theo method mong muon (`POST`).
-- [ ] Xu ly truong hop user tu choi camera permission.
-- [ ] Dam bao CORS/COEP/COOP headers khong bi vo tinh xoa khi sua config.
-- [ ] Khong luu video raw vao noi luu tru lau dai neu khong co yeu cau ro rang.
-
-### Quality Gates
-
-- Truoc khi merge: `npm run lint` pass.
-- Neu sua luong chinh camera/analyze: test thu cong tren desktop Chrome.
-- Neu sua API route/env: test ca case co token va case fallback.
+- [ ] No sensitive data (email/password/token) logged to console or response
+- [ ] Required env vars validated before calling external service
+- [ ] API routes restricted to expected HTTP methods (`POST`)
+- [ ] Camera permission denial handled gracefully
+- [ ] CORS/COEP/COOP headers not accidentally removed when editing config
+- [ ] Raw video not persisted long-term without explicit requirement
 
 ## Frontend Guidelines
 
-### Component and File Organization
+### Component & File Organization
 
-- Mac dinh tach logic lon khoi `app/page.tsx` thanh module nho theo feature: camera, analyze, result, team-report.
-- Uu tien custom hooks cho side effects phuc tap (`useCamera`, `useFaceDetection`, `useTeamReports`).
-- Giu `app/layout.tsx` gon: metadata, root wrappers, global concerns.
-- Utilities dung chung dat trong `lib/` voi API ro rang, tranh phu thuoc nguoc vao UI.
+- Extract large logic from `app/page.tsx` into feature modules: camera, analyze, result, team-report
+- Prefer custom hooks for complex side effects (`useCamera`, `useFaceDetection`, `useTeamReports`)
+- Keep `app/layout.tsx` minimal: metadata, root wrappers, global concerns only
+- Shared utilities in `lib/` with clear APIs, no reverse dependency on UI
 
-### State Management Approach
+### State Management
 
-- Dung local state (`useState`, `useRef`, `useEffect`, `useCallback`) cho luong tuong tac real-time.
-- Uu tien finite-step thinking cho `AppStep`; moi transition phai co dieu kien ro.
-- Tach transient state va persisted state:
-  - Transient: camera stream, countdown, face status.
-  - Persisted: theme palette, language, team reports cache.
-- Khi co xu ly async dai, luon co loading/progress state va timeout fallback.
+- Use local state (`useState`, `useRef`, `useEffect`, `useCallback`) for real-time interaction
+- Use finite-step state machine for `AppStep`; each transition requires explicit condition
+- Separate transient vs persisted state:
+  - **Transient**: camera stream, countdown, face status
+  - **Persisted**: theme palette, language, team reports cache
+- Long async operations always have loading/progress state + timeout fallback
 
-### Styling and Theming
+### Styling & Theming
 
-- Giu huong thiet ke hien tai: clinical tone, gradient background, Noto Sans JP cho UI.
-- Su dung token/theme palette thay vi hardcode mau moi trong nhieu noi.
-- Neu them theme moi, cap nhat dong bo `theme-palettes.ts`, UI selector, va contrast text.
-- Ket hop Tailwind utilities voi scoped/global CSS mot cach nhat quan; tranh xung dot style.
+- **Design tone**: Clinical, gradient backgrounds, Noto Sans JP
+- Use token/theme palette from `theme-palettes.ts` instead of hardcoding colors
+- When adding new theme, update `theme-palettes.ts`, UI selector, and contrast text simultaneously
+- Combine Tailwind utilities with scoped/global CSS consistently; avoid style conflicts
 
-### UI/UX Rules for Camera Flow
+### Camera Flow UX Rules
 
-- Luon hien thong diep huong dan theo state (`loading`, `no-face`, `outside`, `inside`, `recording`).
-- Nut bat dau do luong chi enable khi dieu kien can thiet da dat.
-- Neu mat tracking giua recording, reset an toan va thong bao ro ly do.
-- Ket qua va loi phai co nut quay lai/reset de user thoat khoi dead-end.
+- Always show guidance message per state (`loading`, `no-face`, `outside`, `inside`, `recording`)
+- Start button enabled only when prerequisites are met (face detected, inside frame)
+- If face tracking lost during recording: reset safely and explain reason clearly
+- Results and errors must have back/reset button — never leave user in dead-end
 
-### Performance Guidelines
+### Performance
 
-- Import nang (`face-api.js`, `@ffmpeg/ffmpeg`) theo lazy/dynamic import nhu hien tai.
-- Tranh render lai khong can thiet trong vong lap detection; dung `useRef` cho mutable runtime values.
-- Gioi han tan suat update UI cho progress/countdown o muc hop ly.
-- Kiem tra memory leak: stop track, clear interval, cancel animation frame khi reset/unmount.
+- Heavy imports (`face-api.js`, `@ffmpeg/ffmpeg`) via lazy/dynamic import
+- Avoid unnecessary re-renders in detection loop; use `useRef` for mutable runtime values
+- Limit UI update frequency for progress/countdown to reasonable rate
+- Check memory leaks: stop tracks, clear intervals, cancel animation frames on reset/unmount
 
-### Accessibility and Internationalization
+### Accessibility & i18n
 
-- Duy tri ho tro song ngu (`ja`, `en`) cho text hien thi va thong diep loi.
-- Dam bao interactive controls co label ro rang va tap target phu hop mobile.
-- Uu tien semantic HTML cho section ket qua/bao cao.
-- Kiem tra mau trang thai (xanh/vang/do) dat muc contrast doc duoc tren ca dark/light variant.
+- Maintain bilingual support (`ja`, `en`) for display text and error messages
+- Interactive controls must have clear labels and appropriate tap targets for mobile
+- Use semantic HTML for result/report sections
+- Verify status colors (green/yellow/red) meet contrast requirements on both dark/light variants
 
-### Data and API Interaction (Frontend)
+### Data & API Interaction
 
-- Frontend chi goi API noi bo `/api/vital-sensing`, khong goi external URL truc tiep.
-- Luon xu ly 3 nhom ket qua: success, api-failure, timeout/interruption.
-- Duy tri fallback mock/session de demo khong bi dung do ket noi dich vu ngoai.
-- Khi thay doi payload/result shape, cap nhat dong bo type `VitalResult` va render cards.
+- Frontend only calls internal `/api/vital-sensing`, never external URLs directly
+- Always handle 3 outcome groups: success, API failure, timeout/interruption
+- When changing payload/result shape, update `VitalResult` type and render cards simultaneously
 
-### Testing Focus (Manual Priority)
+## Backend Guidelines
 
-- Happy path: cho phep camera -> record 6 giay -> analyze -> result.
-- Permission denied path: vao man hinh loi va retry hoat dong.
-- Face outside path: khong cho bat dau recording va canh bao ro rang.
-- Team report path: fetch thanh cong va fallback session khi Firestore fail.
+### API Route Pattern
+
+- All routes in `app/api/` using Next.js Route Handlers
+- Thin route handlers: delegate business logic to `lib/` modules
+- Response format: `{ code: 200, data: {...} }` for success, `{ error: true, message: "..." }` for error
+- Set `runtime = "nodejs"` explicitly for routes needing Node.js APIs
+
+### External API Integration (lib/online-doctor.ts)
+
+- **Auth flow**: Login with email/password → get access token → use Bearer token for API calls
+- **Timeouts**: 30s for login, 60s for vital analysis
+- **Error handling**: Strict — no silent fallbacks, throw with descriptive message
+- **FormData**: Never set Content-Type manually; let fetch set `multipart/form-data` with boundary automatically
+- **Logging**: Log request/response for debugging, but mask sensitive data (tokens truncated)
+
+### D1 Database (lib/reportService.ts)
+
+- All functions receive `db: D1Database` as parameter (no module-level side effects)
+- Table: `vital_reports` with auto-increment ID + 4-digit short ID
+- Short ID generation: random + uniqueness check (max 10 attempts) + timestamp fallback
+- Migrations in `migrations/` folder, applied via Wrangler
+
+#### Key Operations
+
+| Operation | Function |
+|-----------|----------|
+| Save report | `saveReport(db, data)` → `{ id, shortId }` |
+| Get all reports | `getAllReports(db)` → `TeamReport[]` (newest first, limit 100) |
+
+### Validation
+
+- Check required form fields (e.g., `file` in vital-sensing route)
+- Validate env vars (`LOGIN_EMAIL`, `LOGIN_PASSWORD`) before calling external service
+- Return appropriate HTTP status codes: 400 (bad request), 502 (upstream error), 500 (unexpected)
+
+### Error Handling
+
+- Wrap external API calls in try/catch
+- Log detailed error server-side (`console.error`)
+- Return generic user-friendly message to client (never expose internal details)
+- Distinguish business errors (API response code ≥ 400) from HTTP errors
+
+### Deployment
+
+- Cloudflare Workers via OpenNext + Alchemy
+- D1 bindings configured in `alchemy.run.ts` and `wrangler.jsonc`
+- Secrets managed via Alchemy (`alchemy.secret.env.*`)
+- Deploy: `npm run deploy` | Destroy: `npm run destroy`
 
 ## Project Customizations
 
-File nay de team bo sung quy tac rieng theo van hanh noi bo.
-No khong nen bi overwrite khi regenerate preset.
+This file is for team-specific rules that won't be overwritten by preset updates.
 
 ### Team Conventions
 
-- [ ] Dinh nghia quy uoc review code (so nguoi review, SLA, muc do bat buoc).
-- [ ] Dinh nghia quy uoc branch/commit message chi tiet hon neu can.
-- [ ] Dinh nghia checklist release demo/prod theo quy trinh noi bo.
+<!-- Define code review rules (reviewers, SLA, enforcement level) -->
+<!-- Define branch/commit message conventions if more specific than standard -->
+<!-- Define release checklist for demo/prod per internal process -->
 
 ### Product-Specific Rules
 
-- [ ] Nguong danh gia vital score (excellent/good/fair/caution/check) co can dieu chinh?
-- [ ] Quy tac hien thi thong diep canh bao y te theo phap ly noi bo.
-- [ ] Danh sach locale bat buoc ngoai `ja` va `en`.
+<!-- Vital score thresholds (excellent/good/fair/caution/check) — need adjustment? -->
+<!-- Medical warning message display rules per local regulations -->
+<!-- Required locales beyond `ja` and `en` -->
 
 ### External Integration Notes
 
-- [ ] Chinh sach rotate credentials cho external vital API.
-- [ ] Chinh sach fallback khi Firestore khong kha dung.
-- [ ] Danh sach environment variables bat buoc theo tung moi truong.
+<!-- Credential rotation policy for external vital API -->
+<!-- Fallback policy when D1 is unavailable -->
+<!-- Required environment variables per environment (local/demo/prod) -->
 
-### Performance and Observability
+### Performance & Observability
 
-- [ ] KPI can theo doi: thoi gian start camera, thoi gian analyze, ty le fail API.
-- [ ] Quy tac log level cho dev/staging/prod.
-- [ ] Neu can, them telemetry events cho moi state transition quan trong.
+<!-- KPIs to track: camera start time, analysis time, API failure rate -->
+<!-- Log level rules for dev/staging/prod -->
+<!-- Telemetry events for important state transitions -->
 
-### Security and Compliance
+### Security & Compliance
 
-- [ ] Quy tac xu ly du lieu video tam thoi (retention, xoa du lieu).
-- [ ] Quy tac mask/anonymize thong tin nhay cam trong logs.
-- [ ] Danh sach doi tuong duoc phep truy cap dashboard/bao cao team.
+<!-- Temporary video data handling rules (retention, deletion) -->
+<!-- Sensitive data masking/anonymization rules in logs -->
+<!-- Access control for team dashboard/reports -->
 
 ### Notes
 
-- Giu noi dung gon, huong dan hanh dong ro, tranh viet thanh tai lieu huong dan dai dong.
-- Moi thay doi lon trong file nay nen duoc review boi owner ky thuat + product.
+- Keep content concise, action-oriented, avoid writing long documentation
+- Major changes to this file should be reviewed by tech owner + product owner
 
 ## Jai1 Framework Agent
 
