@@ -7,6 +7,10 @@ description: Project-specific customizations (not overwritten on regeneration)
 
 This file is for team-specific rules that won't be overwritten by preset updates.
 
+## Infra
+- Không sửa trực tiếp trong file `wrangler.jsonc`, mà sửa trong file `alchemy.run.ts`, file `wrangler.jsonc` được alchemy tạo ra.
+- ref doc: https://alchemy.run/guides/cloudflare-nextjs.md
+
 ## Team Conventions
 
 <!-- Define code review rules (reviewers, SLA, enforcement level) -->

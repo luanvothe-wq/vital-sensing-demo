@@ -23,6 +23,15 @@ const db = await D1Database("db", {
 export const website = await Nextjs("web", {
     adopt: true, // adopt existing worker if already deployed
 
+    // Assets config: OpenNext worker cần xử lý tất cả routes (SSR/ISR/static)
+    // Default của Nextjs resource là run_worker_first: false → static asset layer
+    // trả 404 cho các routes không có file tĩnh (ví dụ /report)
+    assets: {
+        directory: ".open-next/assets",
+        run_worker_first: true,
+        not_found_handling: "single-page-application",
+    },
+
     bindings: {
         // D1 Database
         DB: db,
