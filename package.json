@@ -6,7 +6,7 @@
   "scripts": {
     "dev-next-only": "next dev",
     "db:migrate:local": "CI=true wrangler d1 migrations apply vital-sensing-db-local --local || true",
-    "dev": "npm run db:migrate:local && npx alchemy.run.ts --dev --stage local",
+    "dev": "npm run db:migrate:local && alchemy dev --stage local alchemy.run.ts",
     "build": "next build",
     "start": "next start",
     "deploy": "npx alchemy deploy alchemy.run.ts --stage demo --profile maker-basic",

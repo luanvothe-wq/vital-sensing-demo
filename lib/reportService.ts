@@ -83,6 +83,40 @@ export async function saveReport(
 }
 
 /**
+ * Lấy 1 report theo short_id 4 chữ số.
+ * @returns TeamReport hoặc null nếu không tìm thấy
+ */
+export async function getReportByShortId(
+  db: D1Database,
+  shortId: string
+): Promise<TeamReport | null> {
+  const row = await db
+    .prepare(
+      `SELECT id, short_id, bpm, bpv1, bpv0, S2, LTv, score, status_key, created_at
+       FROM vital_reports WHERE short_id = ? LIMIT 1`
+    )
+    .bind(shortId)
+    .first<ReportRow>();
+
+  if (!row) return null;
+
+  return {
+    id: row.id,
+    shortId: row.short_id ?? undefined,
+    bpm: row.bpm,
+    bpv1: row.bpv1,
+    bpv0: row.bpv0,
+    S2: row.S2,
+    LTv: row.LTv,
+    score: row.score,
+    statusKey: row.status_key,
+    createdAt: row.created_at
+      ? { toDate: () => new Date(row.created_at * 1000) }
+      : null,
+  };
+}
+
+/**
  * Lấy tất cả reports, sắp xếp mới nhất đứng đầu.
  */
 export async function getAllReports(db: D1Database): Promise<TeamReport[]> {
