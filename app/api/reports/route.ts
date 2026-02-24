@@ -37,8 +37,8 @@ export async function POST(req: NextRequest) {
             );
         }
 
-        const id = await saveReport(db, body);
-        return NextResponse.json({ id }, { status: 201 });
+        const { id, shortId } = await saveReport(db, body);
+        return NextResponse.json({ id, shortId }, { status: 201 });
     } catch (err) {
         console.error("[POST /api/reports]", err);
         return NextResponse.json(

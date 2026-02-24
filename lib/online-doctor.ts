@@ -42,10 +42,14 @@ export async function getAccessToken(): Promise<string> {
     console.log(`[REQ] POST ${loginUrl}`);
     console.log(`[REQ] Payload: mailaddress=${LOGIN_EMAIL}, password=***`);
 
+    const loginController = new AbortController();
+    const loginTimeout = setTimeout(() => loginController.abort(), 30000); // 30s timeout for login
     const res = await fetch(loginUrl, {
         method: "POST",
         body: formData,
+        signal: loginController.signal,
     });
+    clearTimeout(loginTimeout);
 
     const text = await res.text();
     console.log(`[RES] Status: ${res.status}`);
@@ -102,11 +106,15 @@ export async function analyzeVitalSignal(file: Blob | File): Promise<VitalData> 
     // QUAN TRỌNG: Không set Content-Type thủ công khi gửi FormData.
     // Node.js/fetch sẽ tự động thêm `Content-Type: multipart/form-data; boundary=...`
     // Nếu set thủ công sẽ mất boundary và API sẽ không parse được file.
+    const vitalController = new AbortController();
+    const vitalTimeout = setTimeout(() => vitalController.abort(), 60000); // 60s timeout for vital analysis
     const res = await fetch(vitalUrl, {
         method: "POST",
         headers: { Authorization: `Bearer ${token}` },
         body: apiFormData,
+        signal: vitalController.signal,
     });
+    clearTimeout(vitalTimeout);
 
     const text = await res.text();
     console.log(`[RES] Status: ${res.status}`);

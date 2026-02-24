@@ -445,9 +445,9 @@ export default function VitalSensingDemo() {
     try {
       const fd = new FormData(); fd.append("file", videoBlob, "vital_scan.mp4");
 
-      // 20秒のタイムアウトを設定
+      // 90秒のタイムアウトを設定（外部APIのログイン + アップロード + 分析に十分な時間を確保）
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 20000);
+      const timeoutId = setTimeout(() => controller.abort(), 90000);
 
       try {
         const res = await fetch("/api/vital-sensing", {
@@ -468,7 +468,9 @@ export default function VitalSensingDemo() {
           setResult(vr);
           setStep("result");
           const sc = computeScore(vr);
-          const localId = `local-${Date.now().toString(36).toUpperCase()}`;
+          // Sinh local short code 4 chữ số (VS-NNNN) làm fallback khi D1 chưa trả về
+          const localCode = String(Math.floor(Math.random() * 10000)).padStart(4, "0");
+          const localId = `VS-${localCode}`;
           const entry: TeamReport = { ...vr, id: localId, score: sc, statusKey: scoreToStatusKey(sc), createdAt: { toDate: () => new Date() } };
           sessionReports.unshift(entry);
           setPersonalReportId(localId);
@@ -480,7 +482,17 @@ export default function VitalSensingDemo() {
           })
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             .then((r) => r.json() as Promise<any>)
-            .then((json) => { if (json.id) { entry.id = json.id; setPersonalReportId(json.id); } })
+            .then((json) => {
+              if (json.shortId) {
+                // D1 trả về short ID — ưu tiên dùng shortId để hiển thị VS-XXXX
+                const displayId = `VS-${json.shortId}`;
+                entry.id = json.id;
+                setPersonalReportId(displayId);
+              } else if (json.id) {
+                entry.id = json.id;
+                setPersonalReportId(json.id);
+              }
+            })
             .catch((e) => console.warn("D1保存エラー:", e));
           return;
         }
@@ -745,6 +757,7 @@ export default function VitalSensingDemo() {
         .btn-header-team { background:${isDark ? 'rgba(30,80,160,.25)' : 'rgba(30,80,160,.1)'}; border:1px solid ${isDark ? 'rgba(100,180,255,.25)' : 'rgba(30,80,160,.2)'}; border-radius:8px; padding:4px 10px; font-size:11px; color:${currentTheme.accent}; cursor:pointer; transition:all .2s ease; font-family:"Noto Sans JP",sans-serif; font-weight:600; }
         .btn-header-team:hover { background:${isDark ? 'rgba(30,80,160,.4)' : 'rgba(30,80,160,.18)'}; }
         .btn-header-team:disabled { opacity:0.5; cursor:default; }
+        @media (max-width:479px) { .header { flex-wrap:wrap; padding:10px 14px; gap:8px; } .palette-selector { position:static; transform:none; order:3; width:100%; text-align:center; } }
         .main-content { flex:1; display:flex; flex-direction:column; align-items:center; justify-content:${(step === "result" || step === "team") ? "flex-start" : "center"}; position:relative; z-index:10; padding:20px; overflow-y:auto; }
         .start-screen { text-align:center; max-width:400px; animation:fadeInUp .6s ease; }
         .start-screen,.error-screen { animation:fadeInUp .4s ease; text-align:center; max-width:520px; margin:0 auto; padding:0 24px; }
