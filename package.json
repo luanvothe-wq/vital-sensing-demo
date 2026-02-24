@@ -6,12 +6,11 @@
   "scripts": {
     "dev-next-only": "next dev",
     "db:migrate:local": "CI=true wrangler d1 migrations apply vital-sensing-db-local --local || true",
-    "dev": "npm run db:migrate:local && bun alchemy.run.ts --dev --stage local",
+    "dev": "npm run db:migrate:local && npx alchemy.run.ts --dev --stage local",
     "build": "next build",
     "start": "next start",
-    "deploy": "npx alchemy deploy alchemy.run.ts --stage demo",
-    "destroy": "npx alchemy destroy alchemy.run.ts --stage demo",
-    "deploy:clean": "rm -rf .open-next/assets/ffmpeg && npm run deploy",
+    "deploy": "npx alchemy deploy alchemy.run.ts --stage demo --profile maker-basic",
+    "destroy": "npx alchemy destroy alchemy.run.ts --stage demo --profile maker-basic",
     "lint": "eslint"
   },
   "dependencies": {

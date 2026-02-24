@@ -33,8 +33,8 @@ export const website = await Nextjs("web", {
         // External Vital API — secrets (encrypted in Alchemy state)
         LOGIN_EMAIL: alchemy.secret.env.LOGIN_EMAIL!,
         LOGIN_PASSWORD: alchemy.secret.env.LOGIN_PASSWORD!,
-        BASIC_AUTH_ID: alchemy.secret.env.BASIC_AUTH_ID!,
-        BASIC_AUTH_PW: alchemy.secret.env.BASIC_AUTH_PW!,
+        // BASIC_AUTH_ID: alchemy.secret.env.BASIC_AUTH_ID!,
+        // BASIC_AUTH_PW: alchemy.secret.env.BASIC_AUTH_PW!,
     },
 });
 
