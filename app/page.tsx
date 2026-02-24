@@ -84,7 +84,7 @@ const translations = {
     autoResumeText: "条件が整い次第、自動で測定を再開します...",
     reportIdLabel: "あなたのレポートID",
     teamReportBtn: "チームレポートへ →",
-    backToPersonalBtn: "← 個人レポートへ",
+
     teamReportTitle: "チームバイタルレポート",
     teamReportSubtitle: "Team Vital Sensing Report",
     totalMeasurements: "測定人数",
@@ -169,7 +169,7 @@ const translations = {
     autoResumeText: "Measurement will resume automatically when ready...",
     reportIdLabel: "Your Report ID",
     teamReportBtn: "Team Report →",
-    backToPersonalBtn: "← My Report",
+
     teamReportTitle: "Team Vital Report",
     teamReportSubtitle: "Team Vital Sensing Report",
     totalMeasurements: "Total Measurements",
@@ -1033,7 +1033,7 @@ export default function VitalSensingDemo() {
             <div className="team-screen">
               <div className="team-header"><h2>{t.teamReportTitle}</h2><p>{t.teamReportSubtitle}</p></div>
               <p style={{ textAlign: "center", color: currentTheme.textSecondary, fontSize: "14px" }}>{t.noDataYet}</p>
-              <button className="btn-secondary" style={{ marginTop: "24px" }} onClick={() => setStep("result")}>{t.backToPersonalBtn}</button>
+
               <button className="btn-reset" onClick={handleReset}>{t.backButton}</button>
             </div>
           );
@@ -1158,7 +1158,7 @@ export default function VitalSensingDemo() {
                   </div>
                 ))}
               </div>
-              <button className="btn-secondary" onClick={() => setStep("result")}>{t.backToPersonalBtn}</button>
+
               <button className="btn-reset" onClick={handleReset}>{t.backButton}</button>
             </div>
           );
