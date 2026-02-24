@@ -54,3 +54,4 @@ next-env.d.ts
 .open-next
 .alchemy
 wrangler.jsonc
+.wrangler/
