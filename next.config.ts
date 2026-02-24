@@ -1,3 +1,4 @@
+import { initOpenNextCloudflareForDev } from "@opennextjs/cloudflare";
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
@@ -42,3 +43,6 @@ const nextConfig: NextConfig = {
 };
 
 export default nextConfig;
+
+// Local dev: init Cloudflare bindings (D1 local mock) for `next dev`
+initOpenNextCloudflareForDev();

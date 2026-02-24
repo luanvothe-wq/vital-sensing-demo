@@ -1,38 +1,103 @@
-# Deploying to Vercel (recommended)
+# Deployment Guide — Vital Sensing Demo
 
-This project is a Next.js app with a server-side API route at `app/api/vital-sensing/route.ts`.
+## Overview
 
-Recommended steps:
+App được deploy lên **Cloudflare Workers** thông qua [Alchemy](https://alchemy.run) — một Infrastructure-as-Code framework cho Cloudflare.
 
-1. Create a Vercel account and connect your Git repository.
-2. Add environment variables in the Vercel dashboard (Project Settings -> Environment Variables):
-   - `API_BASE_URL` (e.g. https://jvit-demo.ishachoku.com)
-   - `LOGIN_EMAIL`
-   - `LOGIN_PASSWORD`
-   - `BASIC_AUTH_ID`
-   - `BASIC_AUTH_PW`
+- **Database**: Cloudflare D1 (SQLite tại edge)
+- **Deployment**: Cloudflare Workers via Alchemy `Nextjs` resource
+- **IaC**: `alchemy.run.ts` (file duy nhất)
 
-3. (Optional) If you prefer local testing, copy `.env.example` -> `.env.local` and fill values.
+---
 
-Notes & caveats:
+## Prerequisites
 
-- The API route uses the Node.js runtime (`export const runtime = "nodejs"`) so it runs as a serverless Node function on Vercel.
-- Vercel serverless functions have limits on request body size and execution time. Large video uploads may hit platform limits. If you expect large uploads, consider:
-  - Uploading directly from client to the external API (signed URL) and avoid proxying through the serverless function.
-  - Using an intermediate storage (S3/Cloud Storage) and processing with a container (Cloud Run / ECS) or background job.
+- Node.js >= 18
+- Tài khoản Cloudflare (miễn phí)
 
-- This repo currently converts WebM->MP4 in the browser, which helps keep server work minimal.
+---
 
-## GitHub Actions で自動デプロイ (オプション)
+## 1. Local Development
 
-このリポジトリには `.github/workflows/vercel-deploy.yml` を追加済みです。プッシュ時に自動でビルドして Vercel にデプロイするには、以下のリポジトリシークレットを GitHub に設定してください:
+```bash
+# Cài dependencies
+npm install
 
-- `VERCEL_TOKEN` — Vercel Personal Token
-- `VERCEL_ORG_ID` — Vercel Organization ID
-- `VERCEL_PROJECT_ID` — Vercel Project ID
+# Chạy local dev server (Next.js dev server + D1 local mock)
+npm run dev
+```
 
-Vercel のトークン/ID は Vercel ダッシュボードのプロジェクト設定やアカウント設定で取得できます。GitHub Actions は `main` または `master` ブランチへプッシュされたときに動作します。
+> `initOpenNextCloudflareForDev()` trong `next.config.ts` sẽ tự động mock D1 binding khi `next dev`.
+> API routes sử dụng `getCloudflareContext()` sẽ hoạt động local.
 
-注意: GitHub Actions からのデプロイでは、Vercel 側にも環境変数を設定しておく必要があります（プロジェクトの Environment variables）。
+---
 
-Optional: Add `vercel.json` to customize function memory and timeout (already included here).
+## 2. Environment Variables
+
+Tạo file `.env.local` (copy từ `.env.local.example` nếu có):
+
+```bash
+# External Vital API
+API_BASE_URL=https://your-api-base-url
+LOGIN_EMAIL=your-email@example.com
+LOGIN_PASSWORD=your-password
+BASIC_AUTH_ID=
+BASIC_AUTH_PW=
+
+# Alchemy (bắt buộc cho deploy)
+ALCHEMY_PASSWORD=change-me-to-a-strong-password
+```
+
+---
+
+## 3. Deploy lên Cloudflare
+
+### Bước 1: Login Cloudflare
+
+```bash
+npx alchemy login
+```
+
+### Bước 2: Deploy
+
+```bash
+npm run deploy
+```
+
+Alchemy sẽ tự động:
+1. Build Next.js app (`next build`)
+2. Bundle với OpenNext Cloudflare adapter
+3. Tạo D1 database `vital-reports-db` (nếu chưa có)
+4. Apply migration `migrations/0001_initial.sql`
+5. Deploy Worker lên Cloudflare với tất cả bindings
+
+Sau deploy, URL sẽ hiện ra:
+
+```
+✅ Deployment configured
+   Website → https://website.<your-account>.workers.dev
+```
+
+---
+
+## 4. Files quan trọng
+
+| File | Mục đích |
+|------|---------|
+| `alchemy.run.ts` | **IaC config duy nhất** — D1Database + Nextjs resource |
+| `migrations/0001_initial.sql` | Schema D1 — tự apply khi deploy |
+| `open-next.config.ts` | OpenNext Cloudflare adapter config |
+| `types/env.d.ts` | Type-safe bindings từ alchemy.run.ts |
+| `lib/d1.ts` | Helper lấy D1 binding qua `getCloudflareContext()` |
+| `lib/reportService.ts` | D1 raw SQL functions |
+| `app/api/reports/route.ts` | GET/POST /api/reports |
+
+---
+
+## 5. Destroy (cleanup)
+
+```bash
+npx alchemy destroy
+```
+
+> ⚠️ Lệnh này sẽ xóa Worker và D1 database trên Cloudflare.

@@ -25,17 +25,19 @@ export async function POST(request: NextRequest) {
       // 成功レスポンスを返す
       return NextResponse.json({ code: 200, data: vitalData });
     } catch (apiError: unknown) {
-      // ライブラリ内で発生した分析エラーを扱う
-      const errorMessage = apiError instanceof Error ? apiError.message : "分析に失敗しました";
+      // サーバー側に詳細エラーを記録（クライアントには公開しない）
+      console.error("[VitalSensing] External API error:", apiError);
+
+      // クライアントには汎用メッセージのみを返す（技術的詳細を隠蔽）
       return NextResponse.json(
-        { error: true, message: errorMessage },
-        { status: 400 }
+        { error: true, message: "バイタルサインの分析に失敗しました" },
+        { status: 502 }  // 502 Bad Gateway: 上流サービスのエラー
       );
     }
   } catch (err) {
-    console.error("Vital Sensing API Proxy Error:", err);
+    console.error("[VitalSensing] Proxy unexpected error:", err);
     return NextResponse.json(
-      { error: true, message: err instanceof Error ? err.message : "サーバーエラー" },
+      { error: true, message: "サーバーエラーが発生しました" },
       { status: 500 }
     );
   }

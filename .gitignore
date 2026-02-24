@@ -49,3 +49,8 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# cloudflare / alchemy
+.open-next
+.alchemy
+wrangler.jsonc

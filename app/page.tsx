@@ -2,20 +2,8 @@
 
 import { useState, useRef, useEffect, useCallback, Fragment } from "react";
 import { type ThemePalette, getThemeColors } from "./theme-palettes";
-import { saveReport, getAllReports, type TeamReport } from "../lib/reportService";
+import { type TeamReport } from "../lib/reportService";
 
-// ============================================
-// モックデータ（5段階サイクル）
-// ============================================
-// 各パターンのスコア: 絶好調(6), 良好(5), 普通(4), やや注意(2), 要確認(0)
-const MOCK_PATTERNS = [
-  { bpm: "75", bpv1: "120", bpv0: "75", S2: "[97]", LTv: "1.45" }, // 絶好調: 2+2+2=6
-  { bpm: "75", bpv1: "135", bpv0: "75", S2: "[96]", LTv: "1.52" }, // 良好:   2+1+2=5
-  { bpm: "75", bpv1: "145", bpv0: "75", S2: "[95]", LTv: "1.60" }, // 普通:   2+0+2=4
-  { bpm: "75", bpv1: "145", bpv0: "92", S2: "[94]", LTv: "1.75" }, // やや注意: 2+0+0=2
-  { bpm: "45", bpv1: "155", bpv0: "95", S2: "[92]", LTv: "2.10" }, // 要確認: 0+0+0=0
-];
-let mockCycleIndex = 0;
 
 // Firebase未設定時のセッション内フォールバックストア
 const sessionReports: import("../lib/reportService").TeamReport[] = [];
@@ -24,6 +12,10 @@ const sessionReports: import("../lib/reportService").TeamReport[] = [];
 let cachedTeamData: import("../lib/reportService").TeamReport[] | null = null;
 let cachedSessionVersion = -1;
 let cachedGeneratedAt: Date | null = null;
+
+// FFmpegによるMP4変換を有効にするかどうか（falseの場合はWebMを直接送信）
+// WebMで外部APIが正常に動作することが確認できたため暫定的に無効化
+const ENABLE_FFMPEG = false;
 
 // ============================================
 // 型定義
@@ -120,6 +112,7 @@ const translations = {
     stressMid: "中程度",
     stressHigh: "高",
     recommendedActionsLabel: "推奨アクション",
+    analysisError: "バイタルサインの分析に失敗しました。しばらく時間をおいて再度お試しください。",
   },
   en: {
     badge: "Demo",
@@ -204,6 +197,7 @@ const translations = {
     stressMid: "Moderate",
     stressHigh: "High",
     recommendedActionsLabel: "Recommended Actions",
+    analysisError: "Vital sign analysis failed. Please wait a moment and try again.",
   },
 };
 
@@ -276,9 +270,13 @@ export default function VitalSensingDemo() {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const ffmpegRef = useRef<any>(null);
   const ffmpegLoadedRef = useRef(false);
+  // languageRef: useCallback内から最新のlanguageを参照するためのref
+  const languageRef = useRef<Language>("ja");
 
   // WASM版FFmpegをロード(ローカルnpmパッケージ使用)
+  // ENABLE_FFMPEG=false の間はスキップ（CDNへの不要なリクエストを防ぐ）
   useEffect(() => {
+    if (!ENABLE_FFMPEG) return;
     const loadFFmpeg = async () => {
       try {
         // ローカルのnpmパッケージからインポート
@@ -321,7 +319,13 @@ export default function VitalSensingDemo() {
     localStorage.setItem("language", language);
   }, [themePalette, language]);
 
+  // languageRefをlanguage stateと同期（useCallback内で最新言語を参照するため）
+  useEffect(() => {
+    languageRef.current = language;
+  }, [language]);
+
   // WebM → MP4 変換（ブラウザ側）
+  // NOTE: "-c:v copy" でストリームをコピー（再エンコードなし）→ libx264より大幅に高速
   const convertToMp4 = async (webmBlob: Blob): Promise<Blob> => {
     const ffmpeg = ffmpegRef.current;
     if (!ffmpeg || !ffmpegLoadedRef.current) {
@@ -331,8 +335,8 @@ export default function VitalSensingDemo() {
     await ffmpeg.writeFile("input.webm", webmBuffer);
     await ffmpeg.exec([
       "-i", "input.webm",
-      "-c:v", "libx264", "-preset", "ultrafast",
-      "-pix_fmt", "yuv420p", "-movflags", "+faststart",
+      "-c:v", "copy",
+      "-movflags", "+faststart",
       "-y", "output.mp4",
     ]);
     const mp4Data = await ffmpeg.readFile("output.mp4");
@@ -435,7 +439,7 @@ export default function VitalSensingDemo() {
   }, [modelLoaded]);
 
   // ------------------------------------------
-  // API送信（実API失敗時はモックデータで結果表示）
+  // API送信（失敗時はエラー画面を表示。詳細ログはサーバー側route.tsで記録）
   // ------------------------------------------
   const sendToApi = useCallback(async (videoBlob: Blob) => {
     try {
@@ -457,7 +461,8 @@ export default function VitalSensingDemo() {
           throw new Error(`HTTP error! status: ${res.status}`);
         }
 
-        const data = await res.json();
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const data = await res.json() as any;
         if (data.code === 200 && data.data) {
           const vr = { bpm: data.data.bpm, bpv1: data.data.bpv1, bpv0: data.data.bpv0, S2: data.data.S2, LTv: data.data.LTv };
           setResult(vr);
@@ -467,9 +472,16 @@ export default function VitalSensingDemo() {
           const entry: TeamReport = { ...vr, id: localId, score: sc, statusKey: scoreToStatusKey(sc), createdAt: { toDate: () => new Date() } };
           sessionReports.unshift(entry);
           setPersonalReportId(localId);
-          saveReport({ ...vr, score: sc, statusKey: scoreToStatusKey(sc) })
-            .then((id) => { entry.id = id; setPersonalReportId(id); })
-            .catch((e) => console.warn("Firestore保存エラー:", e));
+          // D1経由で保存: fetch POST /api/reports
+          fetch("/api/reports", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ ...vr, score: sc, statusKey: scoreToStatusKey(sc) }),
+          })
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            .then((r) => r.json() as Promise<any>)
+            .then((json) => { if (json.id) { entry.id = json.id; setPersonalReportId(json.id); } })
+            .catch((e) => console.warn("D1保存エラー:", e));
           return;
         }
         throw new Error(data.message || "分析に失敗しました");
@@ -480,23 +492,13 @@ export default function VitalSensingDemo() {
         throw fetchErr;
       }
     } catch (err) {
-      console.warn("実API失敗、モックデータを使用:", err);
-      // モックデータで結果画面を表示（5段階サイクル）
-      await new Promise((r) => setTimeout(r, 1000));
-      const pattern = MOCK_PATTERNS[mockCycleIndex % MOCK_PATTERNS.length];
-      console.log(`=== モックパターン ${mockCycleIndex % MOCK_PATTERNS.length + 1}/5 ===`, pattern);
-      mockCycleIndex++;
-      setResult(pattern);
-      setStep("result");
-      const sc = computeScore(pattern);
-      const localId = `local-${Date.now().toString(36).toUpperCase()}`;
-      const entry: TeamReport = { ...pattern, id: localId, score: sc, statusKey: scoreToStatusKey(sc), createdAt: { toDate: () => new Date() } };
-      sessionReports.unshift(entry);
-      setPersonalReportId(localId);
-      saveReport({ ...pattern, score: sc, statusKey: scoreToStatusKey(sc) })
-        .then((id) => { entry.id = id; setPersonalReportId(id); })
-        .catch((e) => console.warn("Firestore保存エラー:", e));
+      // 分析失敗: 現在の言語でユーザー向け汎用メッセージを表示
+      // 詳細なエラー情報はサーバー側（route.ts）のconsole.errorで記録済み
+      console.warn("[VitalSensing] Analysis failed:", err);
+      setErrorMessage(translations[languageRef.current].analysisError);
+      setStep("error");
     }
+    // languageRef được sync với language state qua useEffect → không cần thêm dependency
   }, []);
 
   // ------------------------------------------
@@ -519,34 +521,28 @@ export default function VitalSensingDemo() {
       stopCamera(); setStep("analyzing");
 
       try {
-        // 15秒タイムアウト付きでMP4変換を試みる
+        // ENABLE_FFMPEG=true の場合のみMP4変換を行う（falseの場合はWebMを直接送信）
         let blobToSend: Blob = webmBlob;
-        try {
-          const timeoutPromise = new Promise<never>((_, reject) =>
-            setTimeout(() => reject(new Error("MP4変換タイムアウト")), 15000)
-          );
-          const mp4Blob = await Promise.race([convertToMp4(webmBlob), timeoutPromise]);
-          blobToSend = mp4Blob;
-          console.log("=== MP4変換成功 ===");
-        } catch (convErr) {
-          console.warn("MP4変換スキップ（WebMで送信）:", convErr);
+        if (ENABLE_FFMPEG) {
+          try {
+            const timeoutPromise = new Promise<never>((_, reject) =>
+              setTimeout(() => reject(new Error("MP4変換タイムアウト")), 30000)
+            );
+            const mp4Blob = await Promise.race([convertToMp4(webmBlob), timeoutPromise]);
+            blobToSend = mp4Blob;
+            console.log("=== MP4変換成功 ===");
+          } catch (convErr) {
+            console.warn("MP4変換スキップ（WebMで送信）:", convErr);
+          }
+        } else {
+          console.log("=== FFmpeg無効: WebMを直接送信 ===");
         }
         await sendToApi(blobToSend);
       } catch (fatalErr) {
-        // 最終フォールバック: モックデータで結果表示
-        console.error("致命的エラー、モック表示:", fatalErr);
-        await new Promise((r) => setTimeout(r, 500));
-        const fb = { bpm: "72", bpv1: "118", bpv0: "76", S2: "[97]", LTv: "1.45" };
-        setResult(fb);
-        setStep("result");
-        const sc = computeScore(fb);
-        const localId = `local-${Date.now().toString(36).toUpperCase()}`;
-        const entry: TeamReport = { ...fb, id: localId, score: sc, statusKey: scoreToStatusKey(sc), createdAt: { toDate: () => new Date() } };
-        sessionReports.unshift(entry);
-        setPersonalReportId(localId);
-        saveReport({ ...fb, score: sc, statusKey: scoreToStatusKey(sc) })
-          .then((id) => { entry.id = id; setPersonalReportId(id); })
-          .catch((e) => console.warn("Firestore保存エラー:", e));
+        // 致命的エラー時: ユーザー向け汎用メッセージを表示（モックデータは使用しない）
+        console.error("[VitalSensing] Fatal processing error:", fatalErr);
+        setErrorMessage(translations[languageRef.current].analysisError);
+        setStep("error");
       }
     };
     mr.start(1000);
@@ -670,15 +666,18 @@ export default function VitalSensingDemo() {
     const now = new Date();
     let data: TeamReport[] = [...sessionReports];
     try {
-      // 5秒でタイムアウト（Firebase未設定時の長時間待機を防ぐ）
-      const fetchPromise: Promise<TeamReport[]> = getAllReports();
+      // 5秒でタイムアウト（D1未設定時の長時間待機を防ぐ）
+      const fetchPromise: Promise<TeamReport[]> = fetch("/api/reports")
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        .then((r) => r.json() as Promise<any>)
+        .then((json) => json.reports ?? []);
       const timeoutPromise: Promise<never> = new Promise((_, reject) =>
         setTimeout(() => reject(new Error("タイムアウト")), 5000)
       );
       const reports = await Promise.race([fetchPromise, timeoutPromise]);
       data = reports.length > 0 ? reports : [...sessionReports];
     } catch (e) {
-      console.warn("Firestore取得エラー、セッションデータを使用:", e);
+      console.warn("D1取得エラー、セッションデータを使用:", e);
     }
     cachedTeamData = data;
     cachedSessionVersion = currentVersion;
